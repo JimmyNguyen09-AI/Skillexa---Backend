@@ -1,0 +1,86 @@
+############################
+# .NET / ASP.NET Core
+############################
+
+# Build results
+bin/
+obj/
+
+# Rider / Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Visual Studio Code
+.vscode/
+
+# Logs
+*.log
+logs/
+
+# NuGet
+*.nupkg
+packages/
+.nuget/
+*.snupkg
+
+# Publish output
+publish/
+out/
+
+############################
+# Environment / Secrets
+############################
+
+.env
+.env.*
+appsettings.Development.json
+appsettings.Local.json
+secrets.json
+
+############################
+# OS files
+############################
+
+.DS_Store
+Thumbs.db
+
+############################
+# Python (nếu project có AI / scripts)
+############################
+
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+############################
+# Node / Frontend (React / Next)
+############################
+
+node_modules/
+.next/
+dist/
+build/
+
+############################
+# Test artifacts
+############################
+
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+############################
+# Misc
+############################
+
+*.tmp
+*.temp
+*.swp
+*.bak
