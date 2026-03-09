@@ -1,0 +1,6 @@
+@skillexa_backend_HostAddress = http://localhost:5250
+
+GET {{skillexa_backend_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
