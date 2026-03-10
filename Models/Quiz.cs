@@ -4,6 +4,8 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace skillexa_backend.Models;
 
 // ─── Quiz ─────────────────────────────────────────────────────────────────────
+// Mock: Quiz { id, lessonId, title, questions[] }
+// One quiz per lesson (1-to-1)
 
 [Table("quizzes")]
 public class Quiz
@@ -12,15 +14,13 @@ public class Quiz
     [Column("id")]
     public Guid Id { get; set; } = Guid.NewGuid();
 
+    // Mock: Quiz.title
     [Required]
-    [MaxLength(255)]
+    [MaxLength(300)]
     [Column("title")]
     public string Title { get; set; } = string.Empty;
 
-    // Điểm tối thiểu để pass (0-100)
-    [Column("pass_score")]
-    public int PassScore { get; set; } = 70;
-
+    // Mock: Quiz.lessonId — one-to-one with Lesson
     [Column("lesson_id")]
     public Guid LessonId { get; set; }
 
@@ -31,39 +31,48 @@ public class Quiz
     [ForeignKey(nameof(LessonId))]
     public Lesson Lesson { get; set; } = null!;
 
-    public ICollection<Question> Questions { get; set; } = [];
+    // Mock: Quiz.questions[]
+    public ICollection<QuizQuestion> Questions { get; set; } = [];
+
     public ICollection<QuizAttempt> Attempts { get; set; } = [];
 }
 
-// ─── Question ─────────────────────────────────────────────────────────────────
+// ─── QuizQuestion ─────────────────────────────────────────────────────────────
+// Mock: QuizQuestion { id, text, options: string[], correctIndex: number, explanation: string }
 
-[Table("questions")]
-public class Question
+[Table("quiz_questions")]
+public class QuizQuestion
 {
     [Key]
     [Column("id")]
     public Guid Id { get; set; } = Guid.NewGuid();
 
-    [Required]
-    [Column("content")]
-    public string Content { get; set; } = string.Empty;
+    [Column("quiz_id")]
+    public Guid QuizId { get; set; }
 
-    [Column("type")]
-    public QuestionType Type { get; set; } = QuestionType.SingleChoice;
-
-    // Lưu dạng JSON: ["Option A", "Option B", "Option C", "Option D"]
-    [Column("options", TypeName = "jsonb")]
-    public string Options { get; set; } = "[]";
-
-    // Lưu dạng JSON: ["Option A"] hoặc ["Option A", "Option C"] nếu multiple
-    [Column("correct_answers", TypeName = "jsonb")]
-    public string CorrectAnswers { get; set; } = "[]";
-
+    // Display order within the quiz
     [Column("order")]
     public int Order { get; set; } = 0;
 
-    [Column("quiz_id")]
-    public Guid QuizId { get; set; }
+    // Mock: QuizQuestion.text
+    [Required]
+    [Column("text")]
+    public string Text { get; set; } = string.Empty;
+
+    // Mock: QuizQuestion.options — string[]
+    // Stored as JSONB: ["Option A", "Option B", "Option C", "Option D"]
+    [Required]
+    [Column("options", TypeName = "jsonb")]
+    public string Options { get; set; } = "[]";
+
+    // Mock: QuizQuestion.correctIndex — 0-based index into options[]
+    [Column("correct_index")]
+    public int CorrectIndex { get; set; } = 0;
+
+    // Mock: QuizQuestion.explanation — shown after submit
+    [Required]
+    [Column("explanation")]
+    public string Explanation { get; set; } = string.Empty;
 
     // Navigation
     [ForeignKey(nameof(QuizId))]
@@ -72,14 +81,9 @@ public class Question
     public ICollection<UserAnswer> UserAnswers { get; set; } = [];
 }
 
-public enum QuestionType
-{
-    SingleChoice,   // Chọn 1 đáp án
-    MultipleChoice, // Chọn nhiều đáp án
-    TrueFalse       // Đúng / Sai
-}
-
 // ─── QuizAttempt ──────────────────────────────────────────────────────────────
+// Mock: POST /api/lessons/:id/quiz/submit → QuizResult
+//       body: { answers: { questionId, selectedIndex }[] }
 
 [Table("quiz_attempts")]
 public class QuizAttempt
@@ -94,11 +98,13 @@ public class QuizAttempt
     [Column("quiz_id")]
     public Guid QuizId { get; set; }
 
+    // Mock: score = count of correct answers
     [Column("score")]
-    public float Score { get; set; } = 0;
+    public int Score { get; set; } = 0;
 
-    [Column("is_passed")]
-    public bool IsPassed { get; set; } = false;
+    // Mock: total = quiz.questions.length
+    [Column("total")]
+    public int Total { get; set; } = 0;
 
     [Column("started_at")]
     public DateTime StartedAt { get; set; } = DateTime.UtcNow;
@@ -117,6 +123,7 @@ public class QuizAttempt
 }
 
 // ─── UserAnswer ───────────────────────────────────────────────────────────────
+// Mock: answers: { questionId: string; selectedIndex: number }[]
 
 [Table("user_answers")]
 public class UserAnswer
@@ -131,10 +138,11 @@ public class UserAnswer
     [Column("question_id")]
     public Guid QuestionId { get; set; }
 
-    // Lưu dạng JSON: đáp án user chọn
-    [Column("selected_answers", TypeName = "jsonb")]
-    public string SelectedAnswers { get; set; } = "[]";
+    // Mock: selectedIndex — 0-based index the user picked
+    [Column("selected_index")]
+    public int SelectedIndex { get; set; } = 0;
 
+    // Computed at submit time: selectedIndex == question.correctIndex
     [Column("is_correct")]
     public bool IsCorrect { get; set; } = false;
 
@@ -143,5 +151,5 @@ public class UserAnswer
     public QuizAttempt Attempt { get; set; } = null!;
 
     [ForeignKey(nameof(QuestionId))]
-    public Question Question { get; set; } = null!;
+    public QuizQuestion Question { get; set; } = null!;
 }

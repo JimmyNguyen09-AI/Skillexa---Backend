@@ -3,6 +3,11 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace skillexa_backend.Models;
 
+// ─── Comment ──────────────────────────────────────────────────────────────────
+// Threaded comments on a Lesson.
+// ParentId = null  → root comment
+// ParentId = Guid  → reply to another comment
+
 [Table("comments")]
 public class Comment
 {
@@ -20,7 +25,7 @@ public class Comment
     [Column("lesson_id")]
     public Guid LessonId { get; set; }
 
-    // Null = comment gốc, có giá trị = reply
+    // Null = root comment, non-null = reply
     [Column("parent_id")]
     public Guid? ParentId { get; set; }
 
