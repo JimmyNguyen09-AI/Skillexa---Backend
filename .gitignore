@@ -84,3 +84,4 @@ coverage/
 *.temp
 *.swp
 *.bak
+appsettings.json
