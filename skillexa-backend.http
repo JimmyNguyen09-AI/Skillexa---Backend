@@ -1,6 +1,394 @@
-@skillexa_backend_HostAddress = http://localhost:5250
+@host = http://localhost:5250
+@contentType = application/json
 
-GET {{skillexa_backend_HostAddress}}/weatherforecast/
-Accept: application/json
+# Update these after running requests below.
+@accessToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4NmExMmQwNC02MDEzLTQyMDctYjQ5Mi03OTBhMjBmNzQyMjYiLCJlbWFpbCI6ImFkbWluQHNraWxsZXhhLmxvY2FsIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvZW1haWxhZGRyZXNzIjoiYWRtaW5Ac2tpbGxleGEubG9jYWwiLCJodHRwOi8vc2NoZW1hcy5taWNyb3NvZnQuY29tL3dzLzIwMDgvMDYvaWRlbnRpdHkvY2xhaW1zL3JvbGUiOiJBZG1pbiIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL25hbWVpZGVudGlmaWVyIjoiODZhMTJkMDQtNjAxMy00MjA3LWI0OTItNzkwYTIwZjc0MjI2IiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvbmFtZSI6IlNraWxsZXhhIEFkbWluIiwiZXhwIjoxNzczNDYyNzU5LCJpc3MiOiJTa2lsbGV4YSIsImF1ZCI6IlNraWxsZXhhLkNsaWVudCJ9.6H4-1gAXU0P0cvKGEtYowsjIvaGAwRHpdt0fiTrneLk
+@authorization = Bearer {{accessToken}}
+@refreshToken = paste-refresh-token-here
+@adminUserId = paste-admin-user-id-here
+@courseId = paste-course-id-here
+@courseSlug = paste-course-slug-here
+@lessonId = paste-lesson-id-here
+@commentId = paste-comment-id-here
 
 ###
+# Root
+GET {{host}}/
+Accept: {{contentType}}
+
+###
+# Health
+GET {{host}}/health
+Accept: {{contentType}}
+
+###
+# DB Health
+GET {{host}}/health/db
+Accept: {{contentType}}
+
+###
+# Auth - Register a normal user
+POST {{host}}/api/auth/register
+Content-Type: {{contentType}}
+Accept: {{contentType}}
+
+{
+  "name": "Jimmy Nguyen",
+  "email": "jimmy@example.com",
+  "password": "P@ssword123!",
+  "avatarUrl": "https://example.com/avatar.png"
+}
+
+###
+# Auth - Login
+# Copy accessToken, refreshToken, userId from response into the variables above.
+POST {{host}}/api/auth/login
+Content-Type: {{contentType}}
+Accept: {{contentType}}
+
+{
+  "email": "jimmy@example.com",
+  "password": "P@ssword123!"
+}
+
+###
+# Auth - Refresh token
+POST {{host}}/api/auth/refresh
+Content-Type: {{contentType}}
+Accept: {{contentType}}
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+###
+# Auth - Revoke refresh token
+POST {{host}}/api/auth/revoke
+Authorization: {{authorization}}
+Content-Type: {{contentType}}
+Accept: {{contentType}}
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+###
+# Users - Current user
+GET {{host}}/api/users/me
+Authorization: {{authorization}}
+Accept: {{contentType}}
+
+###
+# Users - Admin list users
+# Requires an Admin token.
+GET {{host}}/api/users/
+Authorization: {{authorization}}
+Accept: {{contentType}}
+
+###
+# Users - Admin update user role
+# Replace {{adminUserId}} with a real user id.
+PUT {{host}}/api/users/{{adminUserId}}/role
+Authorization: {{authorization}}
+Content-Type: {{contentType}}
+Accept: {{contentType}}
+
+{
+  "role": "Admin"
+}
+
+###
+# Users - Admin update user status
+PUT {{host}}/api/users/{{adminUserId}}/status
+Authorization: {{authorization}}
+Content-Type: {{contentType}}
+Accept: {{contentType}}
+
+{
+  "status": "Active"
+}
+
+###
+# Courses - Public list
+GET {{host}}/api/courses/
+Accept: {{contentType}}
+
+###
+# Courses - Admin create course
+# Requires an Admin token. Copy id and slug from response.
+POST {{host}}/api/courses/
+Authorization: {{authorization}}
+Content-Type: {{contentType}}
+Accept: {{contentType}}
+
+{
+  "title": "ASP.NET Core Backend for Devs",
+  "slug": "aspnet-core-backend-for-devs",
+  "description": "Production-focused learning path for ASP.NET Core Minimal API.",
+  "level": "Intermediate",
+  "thumbnailUrl": "https://example.com/course-thumbnail.png",
+  "isPublished": true
+}
+
+###
+# Courses - Public detail by slug
+GET {{host}}/api/courses/{{courseSlug}}
+Accept: {{contentType}}
+
+###
+# Courses - Admin update course
+PUT {{host}}/api/courses/{{courseId}}
+Authorization: {{authorization}}
+Content-Type: {{contentType}}
+Accept: {{contentType}}
+
+{
+  "title": "ASP.NET Core Backend for Devs - Updated",
+  "slug": "aspnet-core-backend-for-devs",
+  "description": "Updated course description.",
+  "level": "Advanced",
+  "thumbnailUrl": "https://example.com/course-thumbnail-updated.png",
+  "isPublished": true
+}
+
+###
+# Courses - Enroll current user
+POST {{host}}/api/courses/{{courseId}}/enroll
+Authorization: {{authorization}}
+Accept: {{contentType}}
+
+###
+# Lessons - List by course
+GET {{host}}/api/courses/{{courseId}}/lessons
+Accept: {{contentType}}
+
+###
+# Lessons - Admin create lesson
+# Copy lesson id from response.
+POST {{host}}/api/courses/{{courseId}}/lessons
+Authorization: {{authorization}}
+Content-Type: {{contentType}}
+Accept: {{contentType}}
+
+{
+  "title": "Authentication with JWT",
+  "summary": "Learn how to build JWT auth in ASP.NET Core.",
+  "orderIndex": 1,
+  "isPublished": true,
+  "contentBlocks": [
+    {
+      "orderIndex": 1,
+      "type": "Text",
+      "content": "JWT is used for stateless authentication.",
+      "codeContent": null,
+      "language": null,
+      "fileName": null,
+      "calloutVariant": null,
+      "imageUrl": null,
+      "imageAlt": null,
+      "imageCaption": null,
+      "imageWidth": null
+    },
+    {
+      "orderIndex": 2,
+      "type": "Code",
+      "content": null,
+      "codeContent": "builder.Services.AddAuthentication();",
+      "language": "csharp",
+      "fileName": "Program.cs",
+      "calloutVariant": null,
+      "imageUrl": null,
+      "imageAlt": null,
+      "imageCaption": null,
+      "imageWidth": null
+    },
+    {
+      "orderIndex": 3,
+      "type": "Callout",
+      "content": "Keep your JWT secret outside source control.",
+      "codeContent": null,
+      "language": null,
+      "fileName": null,
+      "calloutVariant": "Warning",
+      "imageUrl": null,
+      "imageAlt": null,
+      "imageCaption": null,
+      "imageWidth": null
+    }
+  ]
+}
+
+###
+# Lessons - Public lesson detail
+GET {{host}}/api/lessons/{{lessonId}}
+Accept: {{contentType}}
+
+###
+# Lessons - Admin update lesson
+PUT {{host}}/api/courses/{{courseId}}/lessons/{{lessonId}}
+Authorization: {{authorization}}
+Content-Type: {{contentType}}
+Accept: {{contentType}}
+
+{
+  "title": "Authentication with JWT - Updated",
+  "summary": "Updated lesson summary.",
+  "orderIndex": 1,
+  "isPublished": true,
+  "contentBlocks": [
+    {
+      "orderIndex": 1,
+      "type": "Text",
+      "content": "JWT enables stateless auth for APIs.",
+      "codeContent": null,
+      "language": null,
+      "fileName": null,
+      "calloutVariant": null,
+      "imageUrl": null,
+      "imageAlt": null,
+      "imageCaption": null,
+      "imageWidth": null
+    },
+    {
+      "orderIndex": 2,
+      "type": "Image",
+      "content": null,
+      "codeContent": null,
+      "language": null,
+      "fileName": null,
+      "calloutVariant": null,
+      "imageUrl": "https://example.com/jwt-diagram.png",
+      "imageAlt": "JWT diagram",
+      "imageCaption": "JWT auth flow",
+      "imageWidth": "Full"
+    }
+  ]
+}
+
+###
+# Lessons - Mark progress complete
+PUT {{host}}/api/lessons/{{lessonId}}/progress
+Authorization: {{authorization}}
+Content-Type: {{contentType}}
+Accept: {{contentType}}
+
+{
+  "isCompleted": true
+}
+
+###
+# Quizzes - Admin create/update quiz
+PUT {{host}}/api/lessons/{{lessonId}}/quiz
+Authorization: {{authorization}}
+Content-Type: {{contentType}}
+Accept: {{contentType}}
+
+{
+  "title": "JWT Fundamentals Quiz",
+  "questions": [
+    {
+      "orderIndex": 1,
+      "prompt": "Which header usually carries a JWT?",
+      "options": [
+        "Authorization",
+        "Cookie",
+        "Origin",
+        "Referer"
+      ],
+      "correctOptionIndex": 0,
+      "explanation": "Bearer tokens are typically sent in the Authorization header."
+    },
+    {
+      "orderIndex": 2,
+      "prompt": "What should be kept secret on the server?",
+      "options": [
+        "Audience",
+        "Issuer",
+        "JWT signing secret",
+        "User id"
+      ],
+      "correctOptionIndex": 2,
+      "explanation": "The signing secret must not be exposed."
+    }
+  ]
+}
+
+###
+# Quizzes - Get quiz
+GET {{host}}/api/lessons/{{lessonId}}/quiz
+Authorization: {{authorization}}
+Accept: {{contentType}}
+
+###
+# Quizzes - Submit quiz
+# Replace question ids after fetching the quiz.
+POST {{host}}/api/lessons/{{lessonId}}/quiz/submit
+Authorization: {{authorization}}
+Content-Type: {{contentType}}
+Accept: {{contentType}}
+
+{
+  "answers": [
+    {
+      "questionId": "00000000-0000-0000-0000-000000000001",
+      "selectedOptionIndex": 0
+    },
+    {
+      "questionId": "00000000-0000-0000-0000-000000000002",
+      "selectedOptionIndex": 2
+    }
+  ]
+}
+
+###
+# Comments - List lesson comments
+GET {{host}}/api/lessons/{{lessonId}}/comments
+Accept: {{contentType}}
+
+###
+# Comments - Create root comment
+# Copy comment id from response.
+POST {{host}}/api/lessons/{{lessonId}}/comments
+Authorization: {{authorization}}
+Content-Type: {{contentType}}
+Accept: {{contentType}}
+
+{
+  "content": "This lesson is very clear.",
+  "parentCommentId": null
+}
+
+###
+# Comments - Create reply
+POST {{host}}/api/lessons/{{lessonId}}/comments
+Authorization: {{authorization}}
+Content-Type: {{contentType}}
+Accept: {{contentType}}
+
+{
+  "content": "Thanks, this helped a lot.",
+  "parentCommentId": "{{commentId}}"
+}
+
+###
+# Comments - Update comment
+PUT {{host}}/api/comments/{{commentId}}
+Authorization: {{authorization}}
+Content-Type: {{contentType}}
+Accept: {{contentType}}
+
+{
+  "content": "This lesson is very clear and practical."
+}
+
+###
+# Comments - Delete comment
+DELETE {{host}}/api/comments/{{commentId}}
+Authorization: {{authorization}}
+Accept: {{contentType}}
+
+###
+# Stats - Admin dashboard
+GET {{host}}/api/stats/dashboard
+Authorization: {{authorization}}
+Accept: {{contentType}}
