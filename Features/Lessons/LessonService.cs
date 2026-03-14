@@ -72,11 +72,9 @@ public sealed class LessonService(AppDbContext dbContext) : ILessonService
         }
         else
         {
-            lesson = await dbContext.Lessons.Include(x => x.ContentBlocks)
+            lesson = await dbContext.Lessons
                 .FirstOrDefaultAsync(x => x.Id == lessonId && x.CourseId == courseId, cancellationToken)
                 ?? throw new AppException("Lesson was not found.", HttpStatusCode.NotFound);
-
-            dbContext.ContentBlocks.RemoveRange(lesson.ContentBlocks);
         }
 
         lesson.Title = request.Title.Trim();
@@ -84,7 +82,15 @@ public sealed class LessonService(AppDbContext dbContext) : ILessonService
         lesson.OrderIndex = request.OrderIndex;
         lesson.IsPublished = request.IsPublished;
         lesson.UpdatedAtUtc = DateTime.UtcNow;
-        lesson.ContentBlocks = request.ContentBlocks
+
+        if (lessonId is not null)
+        {
+            await dbContext.ContentBlocks
+                .Where(x => x.LessonId == lesson.Id)
+                .ExecuteDeleteAsync(cancellationToken);
+        }
+
+        var contentBlocks = request.ContentBlocks
             .OrderBy(x => x.OrderIndex)
             .Select(x => new ContentBlock
             {
@@ -100,9 +106,16 @@ public sealed class LessonService(AppDbContext dbContext) : ILessonService
                 ImageAlt = x.ImageAlt,
                 ImageCaption = x.ImageCaption,
                 ImageWidth = x.ImageWidth
-            }).ToList();
+            })
+            .ToList();
+
+        if (contentBlocks.Count > 0)
+        {
+            dbContext.ContentBlocks.AddRange(contentBlocks);
+        }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        lesson.ContentBlocks = contentBlocks;
         return Map(lesson);
     }
 
