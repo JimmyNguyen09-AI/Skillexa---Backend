@@ -70,7 +70,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("DefaultCors", policy =>
     {
-        var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+        var origins = GetAllowedOrigins(builder.Configuration);
         if (origins.Length == 0)
         {
             policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
@@ -172,3 +172,15 @@ app.MapCommentEndpoints();
 app.MapStatsEndpoints();
 
 app.Run();
+
+static string[] GetAllowedOrigins(IConfiguration configuration)
+{
+    var csvOrigins = configuration["Cors:AllowedOriginsCsv"];
+    if (!string.IsNullOrWhiteSpace(csvOrigins))
+    {
+        return csvOrigins
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    }
+
+    return configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+}

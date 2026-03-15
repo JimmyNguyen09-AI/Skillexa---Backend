@@ -36,8 +36,10 @@ out/
 
 .env
 .env.*
+!.env.example
 appsettings.Development.json
 appsettings.Local.json
+appsettings.Development.example.json
 secrets.json
 
 ############################
@@ -84,4 +86,4 @@ coverage/
 *.temp
 *.swp
 *.bak
-appsettings.json
+

@@ -76,7 +76,7 @@ public sealed class AuthService(AppDbContext dbContext, IJwtService jwtService, 
 
         if (refreshToken.User.Status != UserStatus.Active)
         {
-            throw new AppException("Tai khoan tam thoi bi vo hieu hoa. Vui long lien he quan tri vien.", HttpStatusCode.Forbidden);
+            throw new AppException("Your account has been temporarily disabled. Please contact the administrator for assistance.", HttpStatusCode.Forbidden);
         }
 
         refreshToken.RevokedAtUtc = DateTime.UtcNow;
