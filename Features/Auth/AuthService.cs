@@ -12,58 +12,40 @@ public sealed class AuthService(AppDbContext dbContext, IJwtService jwtService, 
 {
     private readonly int _accessTokenMinutes = configuration.GetValue<int?>("Jwt:AccessTokenMinutes") ?? 60;
 
-    public async Task<AuthTokenResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken)
+    public async Task<AuthTokenResponse> ExternalLoginAsync(string email, string name, string? avatarUrl, CancellationToken cancellationToken)
     {
-        var email = request.Email.Trim().ToLowerInvariant();
-
-        if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(request.Password))
+        if (string.IsNullOrWhiteSpace(email))
         {
-            throw new AppException("Name, email, and password are required.");
+            throw new AppException("OAuth provider did not return a valid email.", HttpStatusCode.BadRequest);
         }
 
-        var exists = await dbContext.Users.AnyAsync(x => x.Email == email, cancellationToken);
-        if (exists)
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        var user = await dbContext.Users.FirstOrDefaultAsync(x => x.Email == normalizedEmail, cancellationToken);
+
+        if (user is null)
         {
-            throw new AppException("Email is already registered.", HttpStatusCode.Conflict);
+            user = new User
+            {
+                Name = string.IsNullOrWhiteSpace(name) ? normalizedEmail.Split('@')[0] : name.Trim(),
+                Email = normalizedEmail,
+                PasswordHash = Guid.NewGuid().ToString("N"),
+                AvatarUrl = string.IsNullOrWhiteSpace(avatarUrl) ? null : avatarUrl.Trim(),
+                Role = UserRole.User,
+                Status = UserStatus.Active
+            };
+
+            dbContext.Users.Add(user);
         }
-
-        var user = new User
+        else
         {
-            Name = request.Name.Trim(),
-            Email = email,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
-            AvatarUrl = string.IsNullOrWhiteSpace(request.AvatarUrl) ? null : request.AvatarUrl.Trim(),
-            Role = UserRole.User,
-            Status = UserStatus.Active
-        };
+            if (user.Status != UserStatus.Active)
+            {
+                throw new AppException("Tai khoan tam thoi bi vo hieu hoa. Vui long lien he quan tri vien.", HttpStatusCode.Forbidden);
+            }
 
-        dbContext.Users.Add(user);
-        var response = CreateAuthResponse(user);
-        dbContext.RefreshTokens.Add(new RefreshToken
-        {
-            UserId = user.Id,
-            Token = response.RefreshToken,
-            ExpiresAtUtc = response.RefreshTokenExpiresAtUtc
-        });
-
-        await dbContext.SaveChangesAsync(cancellationToken);
-        return response;
-    }
-
-    public async Task<AuthTokenResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken)
-    {
-        var email = request.Email.Trim().ToLowerInvariant();
-        var user = await dbContext.Users.FirstOrDefaultAsync(x => x.Email == email, cancellationToken)
-            ?? throw new AppException("Invalid email or password.", HttpStatusCode.Unauthorized);
-
-        if (user.Status != UserStatus.Active)
-        {
-            throw new AppException("User account is inactive.", HttpStatusCode.Forbidden);
-        }
-
-        if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
-        {
-            throw new AppException("Invalid email or password.", HttpStatusCode.Unauthorized);
+            user.Name = string.IsNullOrWhiteSpace(name) ? user.Name : name.Trim();
+            user.AvatarUrl = string.IsNullOrWhiteSpace(avatarUrl) ? user.AvatarUrl : avatarUrl.Trim();
+            user.UpdatedAtUtc = DateTime.UtcNow;
         }
 
         await RevokeAllRefreshTokensAsync(user.Id, cancellationToken);
@@ -94,7 +76,7 @@ public sealed class AuthService(AppDbContext dbContext, IJwtService jwtService, 
 
         if (refreshToken.User.Status != UserStatus.Active)
         {
-            throw new AppException("User account is inactive.", HttpStatusCode.Forbidden);
+            throw new AppException("Tai khoan tam thoi bi vo hieu hoa. Vui long lien he quan tri vien.", HttpStatusCode.Forbidden);
         }
 
         refreshToken.RevokedAtUtc = DateTime.UtcNow;

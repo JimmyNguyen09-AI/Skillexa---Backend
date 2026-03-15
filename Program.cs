@@ -77,12 +77,23 @@ builder.Services.AddCors(options =>
             return;
         }
 
-        policy.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod();
+        policy.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod().AllowCredentials();
     });
 });
 
-builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+var authBuilder = builder.Services
+    .AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddCookie("ExternalCookie", options =>
+    {
+        options.Cookie.Name = "skillexa_external";
+        options.Cookie.HttpOnly = true;
+        options.ExpireTimeSpan = TimeSpan.FromMinutes(10);
+    })
     .AddJwtBearer(options =>
     {
         options.TokenValidationParameters = new TokenValidationParameters
@@ -96,6 +107,18 @@ builder.Services
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret))
         };
     });
+
+var googleClientId = builder.Configuration["Authentication:Google:ClientId"];
+var googleClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+if (!string.IsNullOrWhiteSpace(googleClientId) && !string.IsNullOrWhiteSpace(googleClientSecret))
+{
+    authBuilder.AddGoogle("Google", options =>
+    {
+        options.SignInScheme = "ExternalCookie";
+        options.ClientId = googleClientId;
+        options.ClientSecret = googleClientSecret;
+    });
+}
 
 builder.Services.AddAuthorization(options =>
 {

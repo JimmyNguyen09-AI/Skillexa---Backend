@@ -35,10 +35,22 @@ public static class CourseEndpoints
             return Results.Ok(ApiResponse<CourseDetailDto>.Ok(result, "Course updated."));
         }).RequireAuthorization("AdminOnly");
 
+        group.MapDelete("/{courseId:guid}", async (Guid courseId, ICourseService service, CancellationToken cancellationToken) =>
+        {
+            await service.DeleteCourseAsync(courseId, cancellationToken);
+            return Results.Ok(ApiResponse<string>.Ok("ok", "Course deleted."));
+        }).RequireAuthorization("AdminOnly");
+
         group.MapPost("/{courseId:guid}/enroll", async (Guid courseId, HttpContext httpContext, ICourseService service, CancellationToken cancellationToken) =>
         {
             var result = await service.EnrollAsync(httpContext.User.GetRequiredUserId(), courseId, cancellationToken);
             return Results.Ok(ApiResponse<EnrollmentDto>.Ok(result, "Enrollment created."));
+        }).RequireAuthorization();
+
+        group.MapGet("/me/enrollments", async (HttpContext httpContext, ICourseService service, CancellationToken cancellationToken) =>
+        {
+            var result = await service.GetMyLearningAsync(httpContext.User.GetRequiredUserId(), cancellationToken);
+            return Results.Ok(ApiResponse<IReadOnlyList<MyLearningCourseDto>>.Ok(result));
         }).RequireAuthorization();
 
         return app;

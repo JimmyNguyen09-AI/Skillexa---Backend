@@ -13,3 +13,17 @@ public sealed record CourseDetailDto(Guid Id, string Title, string Slug, string?
 public sealed record CourseLessonDto(Guid Id, string Title, string? Summary, int OrderIndex, bool IsPublished);
 
 public sealed record EnrollmentDto(Guid EnrollmentId, Guid CourseId, Guid UserId, int ProgressPercent, DateTime EnrolledAtUtc, DateTime? CompletedAtUtc);
+
+public sealed record MyLearningCourseDto(
+    Guid EnrollmentId,
+    Guid CourseId,
+    string Title,
+    string Slug,
+    string? Description,
+    string Level,
+    string? ThumbnailUrl,
+    bool IsPublished,
+    int ProgressPercent,
+    int LessonCount,
+    DateTime EnrolledAtUtc,
+    DateTime? CompletedAtUtc);

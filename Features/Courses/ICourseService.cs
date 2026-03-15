@@ -6,5 +6,7 @@ public interface ICourseService
     Task<CourseDetailDto> GetCourseBySlugAsync(string slug, bool includeUnpublished, CancellationToken cancellationToken);
     Task<CourseDetailDto> CreateCourseAsync(CreateCourseRequest request, CancellationToken cancellationToken);
     Task<CourseDetailDto> UpdateCourseAsync(Guid courseId, UpdateCourseRequest request, CancellationToken cancellationToken);
+    Task DeleteCourseAsync(Guid courseId, CancellationToken cancellationToken);
     Task<EnrollmentDto> EnrollAsync(Guid userId, Guid courseId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<MyLearningCourseDto>> GetMyLearningAsync(Guid userId, CancellationToken cancellationToken);
 }

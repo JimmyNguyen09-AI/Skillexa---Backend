@@ -14,11 +14,9 @@ public static class AppDbSeeder
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(options.Email) ||
-            string.IsNullOrWhiteSpace(options.Password) ||
-            string.IsNullOrWhiteSpace(options.Name))
+        if (string.IsNullOrWhiteSpace(options.Email) || string.IsNullOrWhiteSpace(options.Name))
         {
-            throw new InvalidOperationException("AdminSeed is enabled but Name, Email, or Password is missing.");
+            throw new InvalidOperationException("AdminSeed is enabled but Name or Email is missing.");
         }
 
         var email = options.Email.Trim().ToLowerInvariant();
@@ -30,7 +28,7 @@ public static class AppDbSeeder
             {
                 Name = options.Name.Trim(),
                 Email = email,
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(options.Password),
+                PasswordHash = Guid.NewGuid().ToString("N"),
                 Role = UserRole.Admin,
                 Status = UserStatus.Active
             };
@@ -40,7 +38,6 @@ public static class AppDbSeeder
         else
         {
             user.Name = options.Name.Trim();
-            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(options.Password);
             user.Role = UserRole.Admin;
             user.Status = UserStatus.Active;
             user.UpdatedAtUtc = DateTime.UtcNow;

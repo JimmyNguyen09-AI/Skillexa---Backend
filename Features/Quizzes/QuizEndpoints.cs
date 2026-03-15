@@ -22,6 +22,12 @@ public static class QuizEndpoints
             return Results.Ok(ApiResponse<QuizDto>.Ok(result, "Quiz saved."));
         }).RequireAuthorization("AdminOnly");
 
+        group.MapDelete("/lessons/{lessonId:guid}/quiz", async (Guid lessonId, IQuizService service, CancellationToken cancellationToken) =>
+        {
+            await service.DeleteAsync(lessonId, cancellationToken);
+            return Results.Ok(ApiResponse<string>.Ok("ok", "Quiz deleted."));
+        }).RequireAuthorization("AdminOnly");
+
         group.MapPost("/lessons/{lessonId:guid}/quiz/submit", async (Guid lessonId, SubmitQuizRequest request, HttpContext httpContext, IQuizService service, CancellationToken cancellationToken) =>
         {
             var result = await service.SubmitAsync(httpContext.User.GetRequiredUserId(), lessonId, request, cancellationToken);

@@ -91,6 +91,16 @@ public sealed class CourseService(AppDbContext dbContext) : ICourseService
         return Map(course);
     }
 
+    public async Task DeleteCourseAsync(Guid courseId, CancellationToken cancellationToken)
+    {
+        var course = await dbContext.Courses
+            .FirstOrDefaultAsync(x => x.Id == courseId, cancellationToken)
+            ?? throw new AppException("Course was not found.", HttpStatusCode.NotFound);
+
+        dbContext.Courses.Remove(course);
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<EnrollmentDto> EnrollAsync(Guid userId, Guid courseId, CancellationToken cancellationToken)
     {
         var course = await dbContext.Courses.FirstOrDefaultAsync(x => x.Id == courseId, cancellationToken)
@@ -118,6 +128,27 @@ public sealed class CourseService(AppDbContext dbContext) : ICourseService
         dbContext.Enrollments.Add(enrollment);
         await dbContext.SaveChangesAsync(cancellationToken);
         return Map(enrollment);
+    }
+
+    public async Task<IReadOnlyList<MyLearningCourseDto>> GetMyLearningAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        return await dbContext.Enrollments
+            .Where(x => x.UserId == userId)
+            .OrderByDescending(x => x.EnrolledAtUtc)
+            .Select(x => new MyLearningCourseDto(
+                x.Id,
+                x.CourseId,
+                x.Course.Title,
+                x.Course.Slug,
+                x.Course.Description,
+                x.Course.Level.ToString(),
+                x.Course.ThumbnailUrl,
+                x.Course.IsPublished,
+                x.ProgressPercent,
+                x.Course.Lessons.Count(lesson => lesson.IsPublished),
+                x.EnrolledAtUtc,
+                x.CompletedAtUtc))
+            .ToListAsync(cancellationToken);
     }
 
     private async Task<string> EnsureUniqueSlugAsync(string? requestedSlug, string title, Guid? currentCourseId, CancellationToken cancellationToken)

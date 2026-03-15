@@ -9,3 +9,5 @@ public sealed record UserDetailDto(Guid Id, string Name, string Email, string Ro
 public sealed record UpdateUserRoleRequest(UserRole Role);
 
 public sealed record UpdateUserStatusRequest(UserStatus Status);
+
+public sealed record UpdateProfileRequest(string Name);

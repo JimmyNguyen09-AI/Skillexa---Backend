@@ -63,16 +63,22 @@ public sealed class QuizService(AppDbContext dbContext) : IQuizService
         return Map(quiz, includeAnswers: true);
     }
 
+    public async Task DeleteAsync(Guid lessonId, CancellationToken cancellationToken)
+    {
+        var quiz = await dbContext.Quizzes
+            .FirstOrDefaultAsync(x => x.LessonId == lessonId, cancellationToken)
+            ?? throw new AppException("Quiz was not found.", HttpStatusCode.NotFound);
+
+        dbContext.Quizzes.Remove(quiz);
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<QuizResultDto> SubmitAsync(Guid userId, Guid lessonId, SubmitQuizRequest request, CancellationToken cancellationToken)
     {
         var lesson = await dbContext.Lessons.FirstOrDefaultAsync(x => x.Id == lessonId, cancellationToken)
             ?? throw new AppException("Lesson was not found.", HttpStatusCode.NotFound);
 
-        var isEnrolled = await dbContext.Enrollments.AnyAsync(x => x.UserId == userId && x.CourseId == lesson.CourseId, cancellationToken);
-        if (!isEnrolled)
-        {
-            throw new AppException("User is not enrolled in this course.");
-        }
+        await EnsureEnrollmentAsync(userId, lesson.CourseId, cancellationToken);
 
         var quiz = await dbContext.Quizzes
             .Include(x => x.Questions)
@@ -119,6 +125,25 @@ public sealed class QuizService(AppDbContext dbContext) : IQuizService
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return new QuizResultDto(attempt.Id, quiz.Id, attempt.Score, attempt.CorrectCount, attempt.TotalQuestions, attempt.SubmittedAtUtc, resultQuestions);
+    }
+
+    private async Task EnsureEnrollmentAsync(Guid userId, Guid courseId, CancellationToken cancellationToken)
+    {
+        var existingEnrollment = await dbContext.Enrollments
+            .AnyAsync(x => x.UserId == userId && x.CourseId == courseId, cancellationToken);
+
+        if (existingEnrollment)
+        {
+            return;
+        }
+
+        dbContext.Enrollments.Add(new Enrollment
+        {
+            UserId = userId,
+            CourseId = courseId
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
     }
 
     private static void ValidateQuestion(QuizQuestionRequest request)

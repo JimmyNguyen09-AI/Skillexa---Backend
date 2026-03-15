@@ -119,13 +119,22 @@ public sealed class LessonService(AppDbContext dbContext) : ILessonService
         return Map(lesson);
     }
 
+    public async Task DeleteLessonAsync(Guid courseId, Guid lessonId, CancellationToken cancellationToken)
+    {
+        var lesson = await dbContext.Lessons
+            .FirstOrDefaultAsync(x => x.Id == lessonId && x.CourseId == courseId, cancellationToken)
+            ?? throw new AppException("Lesson was not found.", HttpStatusCode.NotFound);
+
+        dbContext.Lessons.Remove(lesson);
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<LessonProgressDto> UpdateProgressAsync(Guid userId, Guid lessonId, LessonProgressRequest request, CancellationToken cancellationToken)
     {
         var lesson = await dbContext.Lessons.FirstOrDefaultAsync(x => x.Id == lessonId, cancellationToken)
             ?? throw new AppException("Lesson was not found.", HttpStatusCode.NotFound);
 
-        var enrollment = await dbContext.Enrollments.FirstOrDefaultAsync(x => x.UserId == userId && x.CourseId == lesson.CourseId, cancellationToken)
-            ?? throw new AppException("User is not enrolled in this course.");
+        var enrollment = await EnsureEnrollmentAsync(userId, lesson.CourseId, cancellationToken);
 
         var progress = await dbContext.LessonProgresses
             .FirstOrDefaultAsync(x => x.UserId == userId && x.LessonId == lessonId, cancellationToken);
@@ -152,6 +161,27 @@ public sealed class LessonService(AppDbContext dbContext) : ILessonService
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return new LessonProgressDto(lessonId, userId, progress.IsCompleted, progress.CompletedAtUtc, enrollment.ProgressPercent);
+    }
+
+    private async Task<Enrollment> EnsureEnrollmentAsync(Guid userId, Guid courseId, CancellationToken cancellationToken)
+    {
+        var enrollment = await dbContext.Enrollments
+            .FirstOrDefaultAsync(x => x.UserId == userId && x.CourseId == courseId, cancellationToken);
+
+        if (enrollment is not null)
+        {
+            return enrollment;
+        }
+
+        enrollment = new Enrollment
+        {
+            UserId = userId,
+            CourseId = courseId
+        };
+
+        dbContext.Enrollments.Add(enrollment);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return enrollment;
     }
 
     private static LessonDto Map(Lesson lesson)

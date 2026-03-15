@@ -24,6 +24,21 @@ public sealed class UserService(AppDbContext dbContext, IAuthService authService
         return Map(user);
     }
 
+    public async Task<UserDetailDto> UpdateProfileAsync(Guid userId, UpdateProfileRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            throw new AppException("Name is required.");
+        }
+
+        var user = await FindUserAsync(userId, cancellationToken);
+        user.Name = request.Name.Trim();
+        user.UpdatedAtUtc = DateTime.UtcNow;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return Map(user);
+    }
+
     public async Task<UserDetailDto> UpdateUserRoleAsync(Guid currentUserId, Guid targetUserId, UpdateUserRoleRequest request, CancellationToken cancellationToken)
     {
         var user = await FindUserAsync(targetUserId, cancellationToken);

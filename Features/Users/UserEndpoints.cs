@@ -15,6 +15,12 @@ public static class UserEndpoints
             return Results.Ok(ApiResponse<UserDetailDto>.Ok(result));
         }).RequireAuthorization();
 
+        group.MapPut("/me", async (UpdateProfileRequest request, HttpContext httpContext, IUserService service, CancellationToken cancellationToken) =>
+        {
+            var result = await service.UpdateProfileAsync(httpContext.User.GetRequiredUserId(), request, cancellationToken);
+            return Results.Ok(ApiResponse<UserDetailDto>.Ok(result, "Profile updated."));
+        }).RequireAuthorization();
+
         group.MapGet("/", async (IUserService service, CancellationToken cancellationToken) =>
         {
             var result = await service.GetUsersAsync(cancellationToken);
