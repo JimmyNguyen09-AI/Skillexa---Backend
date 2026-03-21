@@ -8,6 +8,7 @@ using Microsoft.OpenApi;
 using skillexa_backend.Features.Auth;
 using skillexa_backend.Features.Comments;
 using skillexa_backend.Features.Courses;
+using skillexa_backend.Features.Feedback;
 using skillexa_backend.Features.Lessons;
 using skillexa_backend.Features.Quizzes;
 using skillexa_backend.Features.Stats;
@@ -146,6 +147,7 @@ builder.Services.AddScoped<ILessonService, LessonService>();
 builder.Services.AddScoped<IQuizService, QuizService>();
 builder.Services.AddScoped<ICommentService, CommentService>();
 builder.Services.AddScoped<IStatsService, StatsService>();
+builder.Services.AddScoped<IFeedbackService, FeedbackService>();
 
 var app = builder.Build();
 
@@ -184,6 +186,7 @@ app.MapLessonEndpoints();
 app.MapQuizEndpoints();
 app.MapCommentEndpoints();
 app.MapStatsEndpoints();
+app.MapFeedbackEndpoints();
 
 app.Run();
 

@@ -18,6 +18,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<QuizAttempt> QuizAttempts => Set<QuizAttempt>();
     public DbSet<UserAnswer> UserAnswers => Set<UserAnswer>();
     public DbSet<Comment> Comments => Set<Comment>();
+    public DbSet<Feedback> Feedback => Set<Feedback>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -175,6 +176,11 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
                 .WithMany(x => x.Replies)
                 .HasForeignKey(x => x.ParentCommentId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<Feedback>(entity =>
+        {
+            entity.HasIndex(x => x.CreatedAtUtc);
         });
 
         base.OnModelCreating(builder);
