@@ -13,7 +13,7 @@ public static class QuizEndpoints
         {
             var includeAnswers = httpContext.User.Identity?.IsAuthenticated == true && httpContext.User.IsAdmin();
             var result = await service.GetByLessonAsync(lessonId, includeAnswers, cancellationToken);
-            return Results.Ok(ApiResponse<QuizDto>.Ok(result));
+            return Results.Ok(ApiResponse<QuizDto?>.Ok(result));
         }).AllowAnonymous();
 
         group.MapPut("/lessons/{lessonId:guid}/quiz", async (Guid lessonId, UpsertQuizRequest request, IQuizService service, CancellationToken cancellationToken) =>

@@ -17,6 +17,7 @@ using skillexa_backend.Infrastructure.Middleware;
 using skillexa_backend.Infrastructure.Security;
 
 var builder = WebApplication.CreateBuilder(args);
+var allowedOrigins = GetAllowedOrigins(builder.Configuration);
 
 var jwtSecret = builder.Configuration["Jwt:Secret"];
 if (string.IsNullOrWhiteSpace(jwtSecret))
@@ -33,6 +34,11 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 if (string.IsNullOrWhiteSpace(connectionString))
 {
     throw new InvalidOperationException("ConnectionStrings:DefaultConnection is required.");
+}
+
+if (!builder.Environment.IsDevelopment() && allowedOrigins.Length == 0)
+{
+    throw new InvalidOperationException("CORS origins must be configured outside development. Set Cors:AllowedOriginsCsv or Cors:AllowedOrigins.");
 }
 
 builder.Services.AddEndpointsApiExplorer();
@@ -78,14 +84,13 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("DefaultCors", policy =>
     {
-        var origins = GetAllowedOrigins(builder.Configuration);
-        if (origins.Length == 0)
+        if (allowedOrigins.Length == 0)
         {
             policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
             return;
         }
 
-        policy.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod().AllowCredentials();
+        policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod().AllowCredentials();
     });
 });
 

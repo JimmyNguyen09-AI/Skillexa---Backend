@@ -118,13 +118,60 @@ public static class AuthEndpoints
     private static string ResolveFrontendCallbackUrl(HttpContext httpContext, IConfiguration configuration)
     {
         var returnUrl = httpContext.Request.Query["returnUrl"].ToString();
-        if (!string.IsNullOrWhiteSpace(returnUrl) && Uri.TryCreate(returnUrl, UriKind.Absolute, out _))
+        if (!string.IsNullOrWhiteSpace(returnUrl)
+            && Uri.TryCreate(returnUrl, UriKind.Absolute, out var parsedReturnUrl)
+            && IsAllowedFrontendReturnUrl(parsedReturnUrl, configuration))
         {
             return returnUrl;
         }
 
         return configuration["AuthFrontend:CallbackUrl"]
             ?? throw new InvalidOperationException("AuthFrontend:CallbackUrl is required.");
+    }
+
+    private static bool IsAllowedFrontendReturnUrl(Uri returnUrl, IConfiguration configuration)
+    {
+        var allowedOrigins = GetAllowedFrontendOrigins(configuration);
+        if (allowedOrigins.Count == 0)
+        {
+            return false;
+        }
+
+        var returnOrigin = returnUrl.GetLeftPart(UriPartial.Authority);
+        return allowedOrigins.Contains(returnOrigin, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static HashSet<string> GetAllowedFrontendOrigins(IConfiguration configuration)
+    {
+        var origins = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var callbackUrl = configuration["AuthFrontend:CallbackUrl"];
+        if (!string.IsNullOrWhiteSpace(callbackUrl) && Uri.TryCreate(callbackUrl, UriKind.Absolute, out var callbackUri))
+        {
+            origins.Add(callbackUri.GetLeftPart(UriPartial.Authority));
+        }
+
+        var csvOrigins = configuration["Cors:AllowedOriginsCsv"];
+        if (!string.IsNullOrWhiteSpace(csvOrigins))
+        {
+            foreach (var origin in csvOrigins.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (Uri.TryCreate(origin, UriKind.Absolute, out var originUri))
+                {
+                    origins.Add(originUri.GetLeftPart(UriPartial.Authority));
+                }
+            }
+        }
+
+        foreach (var origin in configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [])
+        {
+            if (Uri.TryCreate(origin, UriKind.Absolute, out var originUri))
+            {
+                origins.Add(originUri.GetLeftPart(UriPartial.Authority));
+            }
+        }
+
+        return origins;
     }
 
     private static void WriteTemporaryOAuthSessionCookie(HttpContext httpContext, AuthTokenResponse tokens)
@@ -137,7 +184,7 @@ public static class AuthEndpoints
             HttpOnly = false,
             IsEssential = true,
             SameSite = SameSiteMode.Lax,
-            Secure = false,
+            Secure = httpContext.Request.IsHttps,
             Path = "/",
             Expires = DateTimeOffset.UtcNow.AddMinutes(2)
         });

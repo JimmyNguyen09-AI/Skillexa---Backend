@@ -2,7 +2,7 @@
 @contentType = application/json
 
 # Update these after running requests below.
-@accessToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4NmExMmQwNC02MDEzLTQyMDctYjQ5Mi03OTBhMjBmNzQyMjYiLCJlbWFpbCI6ImFkbWluQHNraWxsZXhhLmxvY2FsIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvZW1haWxhZGRyZXNzIjoiYWRtaW5Ac2tpbGxleGEubG9jYWwiLCJodHRwOi8vc2NoZW1hcy5taWNyb3NvZnQuY29tL3dzLzIwMDgvMDYvaWRlbnRpdHkvY2xhaW1zL3JvbGUiOiJBZG1pbiIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL25hbWVpZGVudGlmaWVyIjoiODZhMTJkMDQtNjAxMy00MjA3LWI0OTItNzkwYTIwZjc0MjI2IiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvbmFtZSI6IlNraWxsZXhhIEFkbWluIiwiZXhwIjoxNzczNDYyNzU5LCJpc3MiOiJTa2lsbGV4YSIsImF1ZCI6IlNraWxsZXhhLkNsaWVudCJ9.6H4-1gAXU0P0cvKGEtYowsjIvaGAwRHpdt0fiTrneLk
+@accessToken = paste-access-token-here
 @authorization = Bearer {{accessToken}}
 @refreshToken = paste-refresh-token-here
 @adminUserId = paste-admin-user-id-here
@@ -27,29 +27,12 @@ GET {{host}}/health/db
 Accept: {{contentType}}
 
 ###
-# Auth - Register a normal user
-POST {{host}}/api/auth/register
-Content-Type: {{contentType}}
+# Auth - Google OAuth login
+# Open this in the browser. The Google callback must point to:
+#   {{host}}/signin-google
+# The frontend callback URL is controlled by AuthFrontend:CallbackUrl.
+GET {{host}}/api/auth/google/login?returnUrl=http://localhost:5173/oauth/callback
 Accept: {{contentType}}
-
-{
-  "name": "Jimmy Nguyen",
-  "email": "jimmy@example.com",
-  "password": "P@ssword123!",
-  "avatarUrl": "https://example.com/avatar.png"
-}
-
-###
-# Auth - Login
-# Copy accessToken, refreshToken, userId from response into the variables above.
-POST {{host}}/api/auth/login
-Content-Type: {{contentType}}
-Accept: {{contentType}}
-
-{
-  "email": "jimmy@example.com",
-  "password": "P@ssword123!"
-}
 
 ###
 # Auth - Refresh token

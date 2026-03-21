@@ -8,12 +8,16 @@ namespace skillexa_backend.Features.Quizzes;
 
 public sealed class QuizService(AppDbContext dbContext) : IQuizService
 {
-    public async Task<QuizDto> GetByLessonAsync(Guid lessonId, bool includeAnswers, CancellationToken cancellationToken)
+    public async Task<QuizDto?> GetByLessonAsync(Guid lessonId, bool includeAnswers, CancellationToken cancellationToken)
     {
         var quiz = await dbContext.Quizzes
             .Include(x => x.Questions)
-            .FirstOrDefaultAsync(x => x.LessonId == lessonId, cancellationToken)
-            ?? throw new AppException("Quiz was not found.", HttpStatusCode.NotFound);
+            .FirstOrDefaultAsync(x => x.LessonId == lessonId, cancellationToken);
+
+        if (quiz is null)
+        {
+            return null;
+        }
 
         return Map(quiz, includeAnswers);
     }
