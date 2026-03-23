@@ -45,4 +45,86 @@ public static class AppDbSeeder
 
         await dbContext.SaveChangesAsync(cancellationToken);
     }
+
+    public static async Task SeedRoadmapsAsync(AppDbContext dbContext, CancellationToken cancellationToken = default)
+    {
+        var definitions = RoadmapSeedDefaults.All;
+        var existingRoadmaps = await dbContext.Roadmaps
+            .Include(x => x.RoadmapCourses)
+            .ToListAsync(cancellationToken);
+
+        foreach (var definition in definitions)
+        {
+            var roadmap = existingRoadmaps.FirstOrDefault(x => x.Slug == definition.Slug);
+            if (roadmap is null)
+            {
+                roadmap = new Roadmap
+                {
+                    Name = definition.Name,
+                    Slug = definition.Slug,
+                    Description = definition.Description
+                };
+
+                dbContext.Roadmaps.Add(roadmap);
+                existingRoadmaps.Add(roadmap);
+            }
+            else
+            {
+                roadmap.Name = definition.Name;
+                roadmap.Description = definition.Description;
+                roadmap.UpdatedAtUtc = DateTime.UtcNow;
+            }
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var coursesBySlug = await dbContext.Courses
+            .ToDictionaryAsync(x => x.Slug.ToLowerInvariant(), cancellationToken);
+
+        foreach (var definition in definitions)
+        {
+            var roadmap = existingRoadmaps.First(x => x.Slug == definition.Slug);
+            var desiredCourseIds = definition.CourseDefinitions
+                .Select(definitionCourse => new
+                {
+                    definitionCourse.OrderIndex,
+                    Course = definitionCourse.CourseSlugAliases
+                        .Select(alias => coursesBySlug.GetValueOrDefault(alias.Trim().ToLowerInvariant()))
+                        .FirstOrDefault(x => x is not null)
+                })
+                .Where(x => x.Course is not null)
+                .Select(x => new { x.OrderIndex, CourseId = x.Course!.Id })
+                .ToList();
+
+            var desiredCourseIdSet = desiredCourseIds.Select(x => x.CourseId).ToHashSet();
+            var existingMappings = await dbContext.RoadmapCourses
+                .Where(x => x.RoadmapId == roadmap.Id)
+                .ToListAsync(cancellationToken);
+
+            foreach (var staleMapping in existingMappings.Where(x => !desiredCourseIdSet.Contains(x.CourseId)))
+            {
+                dbContext.RoadmapCourses.Remove(staleMapping);
+            }
+
+            foreach (var desired in desiredCourseIds)
+            {
+                var mapping = existingMappings.FirstOrDefault(x => x.CourseId == desired.CourseId);
+                if (mapping is null)
+                {
+                    dbContext.RoadmapCourses.Add(new RoadmapCourse
+                    {
+                        RoadmapId = roadmap.Id,
+                        CourseId = desired.CourseId,
+                        OrderIndex = desired.OrderIndex
+                    });
+                }
+                else if (mapping.OrderIndex != desired.OrderIndex)
+                {
+                    mapping.OrderIndex = desired.OrderIndex;
+                }
+            }
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
 }

@@ -11,6 +11,7 @@ using skillexa_backend.Features.Courses;
 using skillexa_backend.Features.Feedback;
 using skillexa_backend.Features.Lessons;
 using skillexa_backend.Features.Quizzes;
+using skillexa_backend.Features.Roadmaps;
 using skillexa_backend.Features.Stats;
 using skillexa_backend.Features.Users;
 using skillexa_backend.Infrastructure.Data;
@@ -148,6 +149,7 @@ builder.Services.AddScoped<IQuizService, QuizService>();
 builder.Services.AddScoped<ICommentService, CommentService>();
 builder.Services.AddScoped<IStatsService, StatsService>();
 builder.Services.AddScoped<IFeedbackService, FeedbackService>();
+builder.Services.AddScoped<IRoadmapService, RoadmapService>();
 
 var app = builder.Build();
 
@@ -169,6 +171,7 @@ using (var scope = app.Services.CreateScope())
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await dbContext.Database.MigrateAsync();
     await AppDbSeeder.SeedAdminAsync(dbContext, scope.ServiceProvider.GetRequiredService<IConfiguration>());
+    await AppDbSeeder.SeedRoadmapsAsync(dbContext);
 }
 
 app.MapGet("/", () => Results.Ok(new { name = "Skillexa API", status = "running" })).AllowAnonymous();
@@ -187,6 +190,7 @@ app.MapQuizEndpoints();
 app.MapCommentEndpoints();
 app.MapStatsEndpoints();
 app.MapFeedbackEndpoints();
+app.MapRoadmapEndpoints();
 
 app.Run();
 

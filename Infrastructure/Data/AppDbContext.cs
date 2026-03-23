@@ -19,6 +19,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<UserAnswer> UserAnswers => Set<UserAnswer>();
     public DbSet<Comment> Comments => Set<Comment>();
     public DbSet<Feedback> Feedback => Set<Feedback>();
+    public DbSet<Roadmap> Roadmaps => Set<Roadmap>();
+    public DbSet<RoadmapCourse> RoadmapCourses => Set<RoadmapCourse>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -181,6 +183,27 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         builder.Entity<Feedback>(entity =>
         {
             entity.HasIndex(x => x.CreatedAtUtc);
+        });
+
+        builder.Entity<Roadmap>(entity =>
+        {
+            entity.HasIndex(x => x.Slug).IsUnique();
+        });
+
+        builder.Entity<RoadmapCourse>(entity =>
+        {
+            entity.HasIndex(x => new { x.RoadmapId, x.CourseId }).IsUnique();
+            entity.HasIndex(x => new { x.RoadmapId, x.OrderIndex }).IsUnique();
+
+            entity.HasOne(x => x.Roadmap)
+                .WithMany(x => x.RoadmapCourses)
+                .HasForeignKey(x => x.RoadmapId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(x => x.Course)
+                .WithMany(x => x.RoadmapCourses)
+                .HasForeignKey(x => x.CourseId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         base.OnModelCreating(builder);
