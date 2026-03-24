@@ -30,6 +30,30 @@ public static class RoadmapEndpoints
             return Results.Ok(ApiResponse<RoadmapDetailDto>.Ok(result));
         });
 
+        group.MapPost("/{roadmapId:guid}/courses", async (Guid roadmapId, UpsertRoadmapCourseRequest request, HttpContext httpContext, IRoadmapService service, CancellationToken cancellationToken) =>
+        {
+            var result = await service.AddCourseAsync(
+                httpContext.User.GetRequiredUserId(),
+                roadmapId,
+                request,
+                httpContext.User.IsAdmin(),
+                cancellationToken);
+
+            return Results.Ok(ApiResponse<RoadmapDetailDto>.Ok(result, "Roadmap updated."));
+        }).RequireAuthorization("AdminOnly");
+
+        group.MapDelete("/{roadmapId:guid}/courses/{courseId:guid}", async (Guid roadmapId, Guid courseId, HttpContext httpContext, IRoadmapService service, CancellationToken cancellationToken) =>
+        {
+            var result = await service.RemoveCourseAsync(
+                httpContext.User.GetRequiredUserId(),
+                roadmapId,
+                courseId,
+                httpContext.User.IsAdmin(),
+                cancellationToken);
+
+            return Results.Ok(ApiResponse<RoadmapDetailDto>.Ok(result, "Roadmap updated."));
+        }).RequireAuthorization("AdminOnly");
+
         return app;
     }
 }

@@ -1,5 +1,7 @@
 namespace skillexa_backend.Features.Roadmaps;
 
+public sealed record UpsertRoadmapCourseRequest(Guid CourseId, int? OrderIndex);
+
 public sealed record RoadmapNextCourseDto(Guid CourseId, string Title, string Slug, int OrderIndex);
 
 public sealed record RoadmapCourseProgressDto(

@@ -84,6 +84,12 @@ public static class AppDbSeeder
         foreach (var definition in definitions)
         {
             var roadmap = existingRoadmaps.First(x => x.Slug == definition.Slug);
+            var hasCustomMappings = await dbContext.RoadmapCourses.AnyAsync(x => x.RoadmapId == roadmap.Id, cancellationToken);
+            if (hasCustomMappings)
+            {
+                continue;
+            }
+
             var desiredCourseIds = definition.CourseDefinitions
                 .Select(definitionCourse => new
                 {
@@ -96,32 +102,14 @@ public static class AppDbSeeder
                 .Select(x => new { x.OrderIndex, CourseId = x.Course!.Id })
                 .ToList();
 
-            var desiredCourseIdSet = desiredCourseIds.Select(x => x.CourseId).ToHashSet();
-            var existingMappings = await dbContext.RoadmapCourses
-                .Where(x => x.RoadmapId == roadmap.Id)
-                .ToListAsync(cancellationToken);
-
-            foreach (var staleMapping in existingMappings.Where(x => !desiredCourseIdSet.Contains(x.CourseId)))
-            {
-                dbContext.RoadmapCourses.Remove(staleMapping);
-            }
-
             foreach (var desired in desiredCourseIds)
             {
-                var mapping = existingMappings.FirstOrDefault(x => x.CourseId == desired.CourseId);
-                if (mapping is null)
+                dbContext.RoadmapCourses.Add(new RoadmapCourse
                 {
-                    dbContext.RoadmapCourses.Add(new RoadmapCourse
-                    {
-                        RoadmapId = roadmap.Id,
-                        CourseId = desired.CourseId,
-                        OrderIndex = desired.OrderIndex
-                    });
-                }
-                else if (mapping.OrderIndex != desired.OrderIndex)
-                {
-                    mapping.OrderIndex = desired.OrderIndex;
-                }
+                    RoadmapId = roadmap.Id,
+                    CourseId = desired.CourseId,
+                    OrderIndex = desired.OrderIndex
+                });
             }
         }
 

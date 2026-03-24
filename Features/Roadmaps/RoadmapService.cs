@@ -38,6 +38,90 @@ public sealed class RoadmapService(AppDbContext dbContext) : IRoadmapService
         return BuildDetail(roadmap, enrollments, includeUnpublished);
     }
 
+    public async Task<RoadmapDetailDto> AddCourseAsync(Guid userId, Guid roadmapId, UpsertRoadmapCourseRequest request, bool includeUnpublished, CancellationToken cancellationToken)
+    {
+        if (request.CourseId == Guid.Empty)
+        {
+            throw new AppException("Course is required.");
+        }
+
+        var roadmap = await dbContext.Roadmaps
+            .Include(x => x.RoadmapCourses)
+            .FirstOrDefaultAsync(x => x.Id == roadmapId, cancellationToken)
+            ?? throw new AppException("Roadmap was not found.", HttpStatusCode.NotFound);
+
+        var course = await dbContext.Courses.FirstOrDefaultAsync(x => x.Id == request.CourseId, cancellationToken)
+            ?? throw new AppException("Course was not found.", HttpStatusCode.NotFound);
+
+        var mappings = roadmap.RoadmapCourses.OrderBy(x => x.OrderIndex).ToList();
+        var desiredOrder = request.OrderIndex.GetValueOrDefault(mappings.Count + 1);
+        desiredOrder = Math.Clamp(desiredOrder, 1, mappings.Count + (mappings.Any(x => x.CourseId == request.CourseId) ? 0 : 1));
+
+        var existingMapping = mappings.FirstOrDefault(x => x.CourseId == request.CourseId);
+        if (existingMapping is null)
+        {
+            foreach (var mapping in mappings.Where(x => x.OrderIndex >= desiredOrder))
+            {
+                mapping.OrderIndex++;
+            }
+
+            dbContext.RoadmapCourses.Add(new RoadmapCourse
+            {
+                RoadmapId = roadmap.Id,
+                CourseId = course.Id,
+                OrderIndex = desiredOrder
+            });
+        }
+        else if (existingMapping.OrderIndex != desiredOrder)
+        {
+            if (desiredOrder < existingMapping.OrderIndex)
+            {
+                foreach (var mapping in mappings.Where(x => x.CourseId != course.Id && x.OrderIndex >= desiredOrder && x.OrderIndex < existingMapping.OrderIndex))
+                {
+                    mapping.OrderIndex++;
+                }
+            }
+            else
+            {
+                foreach (var mapping in mappings.Where(x => x.CourseId != course.Id && x.OrderIndex > existingMapping.OrderIndex && x.OrderIndex <= desiredOrder))
+                {
+                    mapping.OrderIndex--;
+                }
+            }
+
+            existingMapping.OrderIndex = desiredOrder;
+        }
+
+        roadmap.UpdatedAtUtc = DateTime.UtcNow;
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return await GetRoadmapBySlugAsync(userId, roadmap.Slug, includeUnpublished, cancellationToken);
+    }
+
+    public async Task<RoadmapDetailDto> RemoveCourseAsync(Guid userId, Guid roadmapId, Guid courseId, bool includeUnpublished, CancellationToken cancellationToken)
+    {
+        var roadmap = await dbContext.Roadmaps
+            .Include(x => x.RoadmapCourses)
+            .FirstOrDefaultAsync(x => x.Id == roadmapId, cancellationToken)
+            ?? throw new AppException("Roadmap was not found.", HttpStatusCode.NotFound);
+
+        var mapping = roadmap.RoadmapCourses.FirstOrDefault(x => x.CourseId == courseId)
+            ?? throw new AppException("This course is not part of the roadmap.", HttpStatusCode.NotFound);
+
+        dbContext.RoadmapCourses.Remove(mapping);
+
+        foreach (var remainingMapping in roadmap.RoadmapCourses
+                     .Where(x => x.CourseId != courseId)
+                     .OrderBy(x => x.OrderIndex)
+                     .Select((item, index) => new { item, OrderIndex = index + 1 }))
+        {
+            remainingMapping.item.OrderIndex = remainingMapping.OrderIndex;
+        }
+
+        roadmap.UpdatedAtUtc = DateTime.UtcNow;
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return await GetRoadmapBySlugAsync(userId, roadmap.Slug, includeUnpublished, cancellationToken);
+    }
+
     private async Task<Dictionary<Guid, Enrollment>> LoadEnrollmentsAsync(Guid userId, CancellationToken cancellationToken)
     {
         return await dbContext.Enrollments

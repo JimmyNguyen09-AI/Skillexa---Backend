@@ -19,7 +19,7 @@ obj/
 # Logs
 *.log
 logs/
-
+docker.sh
 # NuGet
 *.nupkg
 packages/
