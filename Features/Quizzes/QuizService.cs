@@ -34,7 +34,7 @@ public sealed class QuizService(AppDbContext dbContext) : IQuizService
             throw new AppException("Lesson was not found.", HttpStatusCode.NotFound);
         }
 
-        var quiz = await dbContext.Quizzes.Include(x => x.Questions)
+        var quiz = await dbContext.Quizzes
             .FirstOrDefaultAsync(x => x.LessonId == lessonId, cancellationToken);
 
         if (quiz is null)
@@ -44,12 +44,24 @@ public sealed class QuizService(AppDbContext dbContext) : IQuizService
         }
         else
         {
-            dbContext.QuizQuestions.RemoveRange(quiz.Questions);
+            // Quiz questions may already be referenced by previous attempts/answers.
+            // Clear attempt history first so the question set can be safely replaced.
+            await dbContext.UserAnswers
+                .Where(x => x.Attempt.QuizId == quiz.Id)
+                .ExecuteDeleteAsync(cancellationToken);
+
+            await dbContext.QuizAttempts
+                .Where(x => x.QuizId == quiz.Id)
+                .ExecuteDeleteAsync(cancellationToken);
+
+            await dbContext.QuizQuestions
+                .Where(x => x.QuizId == quiz.Id)
+                .ExecuteDeleteAsync(cancellationToken);
         }
 
         quiz.Title = request.Title.Trim();
         quiz.UpdatedAtUtc = DateTime.UtcNow;
-        quiz.Questions = request.Questions.OrderBy(x => x.OrderIndex).Select(x =>
+        var questions = request.Questions.OrderBy(x => x.OrderIndex).Select(x =>
         {
             ValidateQuestion(x);
             return new QuizQuestion
@@ -63,7 +75,13 @@ public sealed class QuizService(AppDbContext dbContext) : IQuizService
             };
         }).ToList();
 
+        if (questions.Count > 0)
+        {
+            dbContext.QuizQuestions.AddRange(questions);
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
+        quiz.Questions = questions;
         return Map(quiz, includeAnswers: true);
     }
 
