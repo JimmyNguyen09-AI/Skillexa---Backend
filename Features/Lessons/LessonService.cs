@@ -129,6 +129,22 @@ public sealed class LessonService(AppDbContext dbContext) : ILessonService
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<CourseLessonProgressDto>> GetCourseProgressAsync(Guid userId, Guid courseId, CancellationToken cancellationToken)
+    {
+        if (!await dbContext.Courses.AnyAsync(x => x.Id == courseId, cancellationToken))
+        {
+            throw new AppException("Course was not found.", HttpStatusCode.NotFound);
+        }
+
+        return await dbContext.LessonProgresses
+            .Where(x => x.UserId == userId && x.Lesson.CourseId == courseId)
+            .Select(x => new CourseLessonProgressDto(
+                x.LessonId,
+                x.IsCompleted,
+                x.CompletedAtUtc))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<LessonProgressDto> UpdateProgressAsync(Guid userId, Guid lessonId, LessonProgressRequest request, CancellationToken cancellationToken)
     {
         var lesson = await dbContext.Lessons.FirstOrDefaultAsync(x => x.Id == lessonId, cancellationToken)

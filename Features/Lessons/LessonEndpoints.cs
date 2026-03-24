@@ -41,6 +41,12 @@ public static class LessonEndpoints
             return Results.Ok(ApiResponse<string>.Ok("ok", "Lesson deleted."));
         }).RequireAuthorization("AdminOnly");
 
+        group.MapGet("/courses/{courseId:guid}/lesson-progress", async (Guid courseId, HttpContext httpContext, ILessonService service, CancellationToken cancellationToken) =>
+        {
+            var result = await service.GetCourseProgressAsync(httpContext.User.GetRequiredUserId(), courseId, cancellationToken);
+            return Results.Ok(ApiResponse<IReadOnlyList<CourseLessonProgressDto>>.Ok(result));
+        }).RequireAuthorization();
+
         group.MapPut("/lessons/{lessonId:guid}/progress", async (Guid lessonId, LessonProgressRequest request, HttpContext httpContext, ILessonService service, CancellationToken cancellationToken) =>
         {
             var result = await service.UpdateProgressAsync(httpContext.User.GetRequiredUserId(), lessonId, request, cancellationToken);

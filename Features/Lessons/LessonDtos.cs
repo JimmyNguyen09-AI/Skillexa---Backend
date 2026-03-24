@@ -13,3 +13,5 @@ public sealed record ContentBlockDto(Guid Id, int OrderIndex, string Type, strin
 public sealed record LessonProgressRequest(bool IsCompleted);
 
 public sealed record LessonProgressDto(Guid LessonId, Guid UserId, bool IsCompleted, DateTime? CompletedAtUtc, int CourseProgressPercent);
+
+public sealed record CourseLessonProgressDto(Guid LessonId, bool IsCompleted, DateTime? CompletedAtUtc);
