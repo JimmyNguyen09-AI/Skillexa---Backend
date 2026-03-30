@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using skillexa_backend.Features.Auth;
+using skillexa_backend.Features.Ai;
 using skillexa_backend.Features.Comments;
 using skillexa_backend.Features.Courses;
 using skillexa_backend.Features.Feedback;
@@ -150,6 +151,8 @@ builder.Services.AddScoped<ICommentService, CommentService>();
 builder.Services.AddScoped<IStatsService, StatsService>();
 builder.Services.AddScoped<IFeedbackService, FeedbackService>();
 builder.Services.AddScoped<IRoadmapService, RoadmapService>();
+builder.Services.AddScoped<IAiAgentProxyService, AiAgentProxyService>();
+builder.Services.AddHttpClient("AiAgentProxy");
 
 var app = builder.Build();
 
@@ -191,6 +194,7 @@ app.MapCommentEndpoints();
 app.MapStatsEndpoints();
 app.MapFeedbackEndpoints();
 app.MapRoadmapEndpoints();
+app.MapAiAgentEndpoints();
 
 app.Run();
 

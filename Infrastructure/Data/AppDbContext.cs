@@ -35,6 +35,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.Status)
                 .HasConversion<string>()
                 .HasMaxLength(20);
+
+            entity.Property(x => x.MembershipPlan)
+                .HasConversion<string>()
+                .HasMaxLength(20);
         });
 
         builder.Entity<RefreshToken>(entity =>
@@ -52,6 +56,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.HasIndex(x => x.Slug).IsUnique();
 
             entity.Property(x => x.Level)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            entity.Property(x => x.AccessTier)
                 .HasConversion<string>()
                 .HasMaxLength(20);
         });

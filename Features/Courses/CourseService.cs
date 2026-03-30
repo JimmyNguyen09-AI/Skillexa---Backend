@@ -2,6 +2,7 @@ using System.Net;
 using Microsoft.EntityFrameworkCore;
 using skillexa_backend.Common.Exceptions;
 using skillexa_backend.Domain.Entities;
+using skillexa_backend.Domain.Enums;
 using skillexa_backend.Infrastructure.Data;
 
 namespace skillexa_backend.Features.Courses;
@@ -26,6 +27,7 @@ public sealed class CourseService(AppDbContext dbContext) : ICourseService
                 x.Level.ToString(),
                 x.ThumbnailUrl,
                 x.IsPublished,
+                x.AccessTier.ToString(),
                 x.CreatedAtUtc,
                 x.UpdatedAtUtc,
                 x.Lessons.Count,
@@ -61,7 +63,8 @@ public sealed class CourseService(AppDbContext dbContext) : ICourseService
             Description = NormalizeOptional(request.Description),
             Level = request.Level,
             ThumbnailUrl = NormalizeOptional(request.ThumbnailUrl),
-            IsPublished = request.IsPublished
+            IsPublished = request.IsPublished,
+            AccessTier = request.AccessTier
         };
 
         dbContext.Courses.Add(course);
@@ -85,6 +88,7 @@ public sealed class CourseService(AppDbContext dbContext) : ICourseService
         course.Level = request.Level;
         course.ThumbnailUrl = NormalizeOptional(request.ThumbnailUrl);
         course.IsPublished = request.IsPublished;
+        course.AccessTier = request.AccessTier;
         course.UpdatedAtUtc = DateTime.UtcNow;
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -109,6 +113,24 @@ public sealed class CourseService(AppDbContext dbContext) : ICourseService
         if (!course.IsPublished)
         {
             throw new AppException("Course is not open for enrollment.");
+        }
+
+        if (course.AccessTier == CourseAccessTier.Pro)
+        {
+            var userAccess = await dbContext.Users
+                .Where(x => x.Id == userId)
+                .Select(x => new { x.Role, x.MembershipPlan })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (userAccess is null)
+            {
+                throw new AppException("User was not found.", HttpStatusCode.NotFound);
+            }
+
+            if (userAccess.Role != UserRole.Admin && userAccess.MembershipPlan != MembershipPlan.Pro)
+            {
+                throw new AppException("This course is available for Pro members only.", HttpStatusCode.Forbidden);
+            }
         }
 
         var existing = await dbContext.Enrollments
@@ -144,6 +166,7 @@ public sealed class CourseService(AppDbContext dbContext) : ICourseService
                 x.Course.Level.ToString(),
                 x.Course.ThumbnailUrl,
                 x.Course.IsPublished,
+                x.Course.AccessTier.ToString(),
                 x.ProgressPercent,
                 x.Course.Lessons.Count(lesson => lesson.IsPublished),
                 x.EnrolledAtUtc,
@@ -200,6 +223,7 @@ public sealed class CourseService(AppDbContext dbContext) : ICourseService
             course.Level.ToString(),
             course.ThumbnailUrl,
             course.IsPublished,
+            course.AccessTier.ToString(),
             course.CreatedAtUtc,
             course.UpdatedAtUtc,
             course.Lessons.OrderBy(x => x.OrderIndex).Select(x => new CourseLessonDto(x.Id, x.Title, x.Summary, x.OrderIndex, x.IsPublished)).ToList(),

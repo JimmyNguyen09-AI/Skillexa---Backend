@@ -39,6 +39,12 @@ public static class UserEndpoints
             return Results.Ok(ApiResponse<UserDetailDto>.Ok(result, "User status updated."));
         }).RequireAuthorization("AdminOnly");
 
+        group.MapPut("/{userId:guid}/plan", async (Guid userId, UpdateUserPlanRequest request, IUserService service, CancellationToken cancellationToken) =>
+        {
+            var result = await service.UpdateUserPlanAsync(userId, request, cancellationToken);
+            return Results.Ok(ApiResponse<UserDetailDto>.Ok(result, "User plan updated."));
+        }).RequireAuthorization("AdminOnly");
+
         return app;
     }
 }

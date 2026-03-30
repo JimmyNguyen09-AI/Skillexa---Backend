@@ -2,14 +2,21 @@ using System.Net;
 using Microsoft.EntityFrameworkCore;
 using skillexa_backend.Common.Exceptions;
 using skillexa_backend.Domain.Entities;
+using skillexa_backend.Domain.Enums;
 using skillexa_backend.Infrastructure.Data;
 
 namespace skillexa_backend.Features.Quizzes;
 
 public sealed class QuizService(AppDbContext dbContext) : IQuizService
 {
-    public async Task<QuizDto?> GetByLessonAsync(Guid lessonId, bool includeAnswers, CancellationToken cancellationToken)
+    public async Task<QuizDto?> GetByLessonAsync(Guid lessonId, bool includeAnswers, Guid? viewerUserId, CancellationToken cancellationToken)
     {
+        var lesson = await dbContext.Lessons
+            .FirstOrDefaultAsync(x => x.Id == lessonId, cancellationToken)
+            ?? throw new AppException("Lesson was not found.", HttpStatusCode.NotFound);
+
+        await EnsureCourseAccessAsync(lesson.CourseId, viewerUserId, cancellationToken);
+
         var quiz = await dbContext.Quizzes
             .Include(x => x.Questions)
             .FirstOrDefaultAsync(x => x.LessonId == lessonId, cancellationToken);
@@ -100,6 +107,7 @@ public sealed class QuizService(AppDbContext dbContext) : IQuizService
         var lesson = await dbContext.Lessons.FirstOrDefaultAsync(x => x.Id == lessonId, cancellationToken)
             ?? throw new AppException("Lesson was not found.", HttpStatusCode.NotFound);
 
+        await EnsureCourseAccessAsync(lesson.CourseId, userId, cancellationToken);
         await EnsureEnrollmentAsync(userId, lesson.CourseId, cancellationToken);
 
         var quiz = await dbContext.Quizzes
@@ -166,6 +174,34 @@ public sealed class QuizService(AppDbContext dbContext) : IQuizService
         });
 
         await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureCourseAccessAsync(Guid courseId, Guid? viewerUserId, CancellationToken cancellationToken)
+    {
+        var course = await dbContext.Courses
+            .FirstOrDefaultAsync(x => x.Id == courseId, cancellationToken)
+            ?? throw new AppException("Course was not found.", HttpStatusCode.NotFound);
+
+        if (course.AccessTier != CourseAccessTier.Pro)
+        {
+            return;
+        }
+
+        if (viewerUserId is null)
+        {
+            throw new AppException("This course is available for Pro members only.", HttpStatusCode.Forbidden);
+        }
+
+        var user = await dbContext.Users
+            .FirstOrDefaultAsync(x => x.Id == viewerUserId.Value, cancellationToken)
+            ?? throw new AppException("User was not found.", HttpStatusCode.NotFound);
+
+        if (user.Role == UserRole.Admin || user.MembershipPlan == MembershipPlan.Pro)
+        {
+            return;
+        }
+
+        throw new AppException("This course is available for Pro members only.", HttpStatusCode.Forbidden);
     }
 
     private static void ValidateQuestion(QuizQuestionRequest request)

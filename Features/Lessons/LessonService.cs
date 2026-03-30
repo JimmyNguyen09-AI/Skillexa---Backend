@@ -2,14 +2,17 @@ using System.Net;
 using Microsoft.EntityFrameworkCore;
 using skillexa_backend.Common.Exceptions;
 using skillexa_backend.Domain.Entities;
+using skillexa_backend.Domain.Enums;
 using skillexa_backend.Infrastructure.Data;
 
 namespace skillexa_backend.Features.Lessons;
 
 public sealed class LessonService(AppDbContext dbContext) : ILessonService
 {
-    public async Task<IReadOnlyList<LessonDto>> GetLessonsByCourseAsync(Guid courseId, bool includeUnpublished, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<LessonDto>> GetLessonsByCourseAsync(Guid courseId, bool includeUnpublished, Guid? viewerUserId, CancellationToken cancellationToken)
     {
+        await EnsureCourseAccessAsync(courseId, viewerUserId, cancellationToken);
+
         var query = dbContext.Lessons
             .Include(x => x.ContentBlocks)
             .Where(x => x.CourseId == courseId);
@@ -23,12 +26,14 @@ public sealed class LessonService(AppDbContext dbContext) : ILessonService
         return lessons.Select(Map).ToList();
     }
 
-    public async Task<LessonDto> GetLessonByIdAsync(Guid lessonId, bool includeUnpublished, CancellationToken cancellationToken)
+    public async Task<LessonDto> GetLessonByIdAsync(Guid lessonId, bool includeUnpublished, Guid? viewerUserId, CancellationToken cancellationToken)
     {
         var lesson = await dbContext.Lessons
             .Include(x => x.ContentBlocks)
             .FirstOrDefaultAsync(x => x.Id == lessonId, cancellationToken)
             ?? throw new AppException("Lesson was not found.", HttpStatusCode.NotFound);
+
+        await EnsureCourseAccessAsync(lesson.CourseId, viewerUserId, cancellationToken);
 
         if (!includeUnpublished && !lesson.IsPublished)
         {
@@ -131,10 +136,7 @@ public sealed class LessonService(AppDbContext dbContext) : ILessonService
 
     public async Task<IReadOnlyList<CourseLessonProgressDto>> GetCourseProgressAsync(Guid userId, Guid courseId, CancellationToken cancellationToken)
     {
-        if (!await dbContext.Courses.AnyAsync(x => x.Id == courseId, cancellationToken))
-        {
-            throw new AppException("Course was not found.", HttpStatusCode.NotFound);
-        }
+        await EnsureCourseAccessAsync(courseId, userId, cancellationToken);
 
         return await dbContext.LessonProgresses
             .Where(x => x.UserId == userId && x.Lesson.CourseId == courseId)
@@ -150,6 +152,7 @@ public sealed class LessonService(AppDbContext dbContext) : ILessonService
         var lesson = await dbContext.Lessons.FirstOrDefaultAsync(x => x.Id == lessonId, cancellationToken)
             ?? throw new AppException("Lesson was not found.", HttpStatusCode.NotFound);
 
+        await EnsureCourseAccessAsync(lesson.CourseId, userId, cancellationToken);
         var enrollment = await EnsureEnrollmentAsync(userId, lesson.CourseId, cancellationToken);
 
         var progress = await dbContext.LessonProgresses
@@ -177,6 +180,34 @@ public sealed class LessonService(AppDbContext dbContext) : ILessonService
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return new LessonProgressDto(lessonId, userId, progress.IsCompleted, progress.CompletedAtUtc, enrollment.ProgressPercent);
+    }
+
+    private async Task EnsureCourseAccessAsync(Guid courseId, Guid? viewerUserId, CancellationToken cancellationToken)
+    {
+        var course = await dbContext.Courses
+            .FirstOrDefaultAsync(x => x.Id == courseId, cancellationToken)
+            ?? throw new AppException("Course was not found.", HttpStatusCode.NotFound);
+
+        if (course.AccessTier != CourseAccessTier.Pro)
+        {
+            return;
+        }
+
+        if (viewerUserId is null)
+        {
+            throw new AppException("This course is available for Pro members only.", HttpStatusCode.Forbidden);
+        }
+
+        var user = await dbContext.Users
+            .FirstOrDefaultAsync(x => x.Id == viewerUserId.Value, cancellationToken)
+            ?? throw new AppException("User was not found.", HttpStatusCode.NotFound);
+
+        if (user.Role == UserRole.Admin || user.MembershipPlan == MembershipPlan.Pro)
+        {
+            return;
+        }
+
+        throw new AppException("This course is available for Pro members only.", HttpStatusCode.Forbidden);
     }
 
     private async Task<Enrollment> EnsureEnrollmentAsync(Guid userId, Guid courseId, CancellationToken cancellationToken)

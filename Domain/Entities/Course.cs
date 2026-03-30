@@ -33,6 +33,9 @@ public sealed class Course
     [Column("is_published")]
     public bool IsPublished { get; set; }
 
+    [Column("access_tier")]
+    public CourseAccessTier AccessTier { get; set; } = CourseAccessTier.Free;
+
     [Column("created_at_utc")]
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 

@@ -12,7 +12,8 @@ public static class QuizEndpoints
         group.MapGet("/lessons/{lessonId:guid}/quiz", async (Guid lessonId, HttpContext httpContext, IQuizService service, CancellationToken cancellationToken) =>
         {
             var includeAnswers = httpContext.User.Identity?.IsAuthenticated == true && httpContext.User.IsAdmin();
-            var result = await service.GetByLessonAsync(lessonId, includeAnswers, cancellationToken);
+            var viewerUserId = httpContext.User.Identity?.IsAuthenticated == true ? httpContext.User.GetRequiredUserId() : (Guid?)null;
+            var result = await service.GetByLessonAsync(lessonId, includeAnswers, viewerUserId, cancellationToken);
             return Results.Ok(ApiResponse<QuizDto?>.Ok(result));
         }).AllowAnonymous();
 

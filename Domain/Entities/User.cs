@@ -35,6 +35,12 @@ public sealed class User
     [Column("status")]
     public UserStatus Status { get; set; } = UserStatus.Active;
 
+    [Column("membership_plan")]
+    public MembershipPlan MembershipPlan { get; set; } = MembershipPlan.Free;
+
+    [Column("ai_agent_usage_count")]
+    public int AiAgentUsageCount { get; set; }
+
     [Column("created_at_utc")]
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 

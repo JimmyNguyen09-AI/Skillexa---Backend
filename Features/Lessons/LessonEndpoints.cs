@@ -12,14 +12,16 @@ public static class LessonEndpoints
         group.MapGet("/courses/{courseId:guid}/lessons", async (Guid courseId, HttpContext httpContext, ILessonService service, CancellationToken cancellationToken) =>
         {
             var includeUnpublished = httpContext.User.Identity?.IsAuthenticated == true && httpContext.User.IsAdmin();
-            var result = await service.GetLessonsByCourseAsync(courseId, includeUnpublished, cancellationToken);
+            var viewerUserId = httpContext.User.Identity?.IsAuthenticated == true ? httpContext.User.GetRequiredUserId() : (Guid?)null;
+            var result = await service.GetLessonsByCourseAsync(courseId, includeUnpublished, viewerUserId, cancellationToken);
             return Results.Ok(ApiResponse<IReadOnlyList<LessonDto>>.Ok(result));
         }).AllowAnonymous();
 
         group.MapGet("/lessons/{lessonId:guid}", async (Guid lessonId, HttpContext httpContext, ILessonService service, CancellationToken cancellationToken) =>
         {
             var includeUnpublished = httpContext.User.Identity?.IsAuthenticated == true && httpContext.User.IsAdmin();
-            var result = await service.GetLessonByIdAsync(lessonId, includeUnpublished, cancellationToken);
+            var viewerUserId = httpContext.User.Identity?.IsAuthenticated == true ? httpContext.User.GetRequiredUserId() : (Guid?)null;
+            var result = await service.GetLessonByIdAsync(lessonId, includeUnpublished, viewerUserId, cancellationToken);
             return Results.Ok(ApiResponse<LessonDto>.Ok(result));
         }).AllowAnonymous();
 

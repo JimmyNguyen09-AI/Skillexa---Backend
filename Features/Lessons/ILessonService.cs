@@ -2,8 +2,8 @@ namespace skillexa_backend.Features.Lessons;
 
 public interface ILessonService
 {
-    Task<IReadOnlyList<LessonDto>> GetLessonsByCourseAsync(Guid courseId, bool includeUnpublished, CancellationToken cancellationToken);
-    Task<LessonDto> GetLessonByIdAsync(Guid lessonId, bool includeUnpublished, CancellationToken cancellationToken);
+    Task<IReadOnlyList<LessonDto>> GetLessonsByCourseAsync(Guid courseId, bool includeUnpublished, Guid? viewerUserId, CancellationToken cancellationToken);
+    Task<LessonDto> GetLessonByIdAsync(Guid lessonId, bool includeUnpublished, Guid? viewerUserId, CancellationToken cancellationToken);
     Task<LessonDto> UpsertLessonAsync(Guid courseId, Guid? lessonId, UpsertLessonRequest request, CancellationToken cancellationToken);
     Task DeleteLessonAsync(Guid courseId, Guid lessonId, CancellationToken cancellationToken);
     Task<IReadOnlyList<CourseLessonProgressDto>> GetCourseProgressAsync(Guid userId, Guid courseId, CancellationToken cancellationToken);
