@@ -123,7 +123,7 @@ public sealed class AiAgentProxyService(
             user.MembershipPlan == MembershipPlan.Free &&
             user.AiAgentUsageCount >= SubscriptionLimits.FreeAiAgentUsageLimit)
         {
-            throw new AppException("Free members can use the AI assistant up to 5 times. Upgrade to Pro to keep asking.", HttpStatusCode.Forbidden);
+            throw new AppException("You have used all 5 free AI requests. Upgrade to Pro to continue.", HttpStatusCode.Forbidden);
         }
 
         return user;
