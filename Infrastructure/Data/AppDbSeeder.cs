@@ -48,32 +48,25 @@ public static class AppDbSeeder
 
     public static async Task SeedRoadmapsAsync(AppDbContext dbContext, CancellationToken cancellationToken = default)
     {
+        if (await dbContext.Roadmaps.AnyAsync(cancellationToken))
+        {
+            return;
+        }
+
         var definitions = RoadmapSeedDefaults.All;
-        var existingRoadmaps = await dbContext.Roadmaps
-            .Include(x => x.RoadmapCourses)
-            .ToListAsync(cancellationToken);
+        var createdRoadmaps = new List<Roadmap>();
 
         foreach (var definition in definitions)
         {
-            var roadmap = existingRoadmaps.FirstOrDefault(x => x.Slug == definition.Slug);
-            if (roadmap is null)
+            var roadmap = new Roadmap
             {
-                roadmap = new Roadmap
-                {
-                    Name = definition.Name,
-                    Slug = definition.Slug,
-                    Description = definition.Description
-                };
+                Name = definition.Name,
+                Slug = definition.Slug,
+                Description = definition.Description
+            };
 
-                dbContext.Roadmaps.Add(roadmap);
-                existingRoadmaps.Add(roadmap);
-            }
-            else
-            {
-                roadmap.Name = definition.Name;
-                roadmap.Description = definition.Description;
-                roadmap.UpdatedAtUtc = DateTime.UtcNow;
-            }
+            dbContext.Roadmaps.Add(roadmap);
+            createdRoadmaps.Add(roadmap);
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -83,13 +76,7 @@ public static class AppDbSeeder
 
         foreach (var definition in definitions)
         {
-            var roadmap = existingRoadmaps.First(x => x.Slug == definition.Slug);
-            var hasCustomMappings = await dbContext.RoadmapCourses.AnyAsync(x => x.RoadmapId == roadmap.Id, cancellationToken);
-            if (hasCustomMappings)
-            {
-                continue;
-            }
-
+            var roadmap = createdRoadmaps.First(x => x.Slug == definition.Slug);
             var desiredCourseIds = definition.CourseDefinitions
                 .Select(definitionCourse => new
                 {

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using skillexa_backend.Common.Exceptions;
 using skillexa_backend.Domain.Entities;
@@ -36,6 +37,50 @@ public sealed class RoadmapService(AppDbContext dbContext) : IRoadmapService
 
         var enrollments = await LoadEnrollmentsAsync(userId, cancellationToken);
         return BuildDetail(roadmap, enrollments, includeUnpublished);
+    }
+
+    public async Task<RoadmapDetailDto> CreateAsync(Guid userId, UpsertRoadmapRequest request, bool includeUnpublished, CancellationToken cancellationToken)
+    {
+        ValidateRoadmapRequest(request);
+
+        var roadmap = new Roadmap
+        {
+            Name = request.Name.Trim(),
+            Slug = await EnsureUniqueSlugAsync(request.Slug, request.Name, null, cancellationToken),
+            Description = NormalizeOptional(request.Description)
+        };
+
+        dbContext.Roadmaps.Add(roadmap);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return await GetRoadmapBySlugAsync(userId, roadmap.Slug, includeUnpublished, cancellationToken);
+    }
+
+    public async Task<RoadmapDetailDto> UpdateAsync(Guid userId, Guid roadmapId, UpsertRoadmapRequest request, bool includeUnpublished, CancellationToken cancellationToken)
+    {
+        ValidateRoadmapRequest(request);
+
+        var roadmap = await dbContext.Roadmaps
+            .FirstOrDefaultAsync(x => x.Id == roadmapId, cancellationToken)
+            ?? throw new AppException("Roadmap was not found.", HttpStatusCode.NotFound);
+
+        roadmap.Name = request.Name.Trim();
+        roadmap.Slug = await EnsureUniqueSlugAsync(request.Slug, request.Name, roadmap.Id, cancellationToken);
+        roadmap.Description = NormalizeOptional(request.Description);
+        roadmap.UpdatedAtUtc = DateTime.UtcNow;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return await GetRoadmapBySlugAsync(userId, roadmap.Slug, includeUnpublished, cancellationToken);
+    }
+
+    public async Task DeleteAsync(Guid roadmapId, CancellationToken cancellationToken)
+    {
+        var roadmap = await dbContext.Roadmaps
+            .FirstOrDefaultAsync(x => x.Id == roadmapId, cancellationToken)
+            ?? throw new AppException("Roadmap was not found.", HttpStatusCode.NotFound);
+
+        dbContext.Roadmaps.Remove(roadmap);
+        await dbContext.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<RoadmapDetailDto> AddCourseAsync(Guid userId, Guid roadmapId, UpsertRoadmapCourseRequest request, bool includeUnpublished, CancellationToken cancellationToken)
@@ -128,6 +173,47 @@ public sealed class RoadmapService(AppDbContext dbContext) : IRoadmapService
             .AsNoTracking()
             .Where(x => x.UserId == userId)
             .ToDictionaryAsync(x => x.CourseId, cancellationToken);
+    }
+
+    private async Task<string> EnsureUniqueSlugAsync(string? requestedSlug, string name, Guid? currentRoadmapId, CancellationToken cancellationToken)
+    {
+        var baseSlug = Slugify(string.IsNullOrWhiteSpace(requestedSlug) ? name : requestedSlug);
+        if (string.IsNullOrWhiteSpace(baseSlug))
+        {
+            throw new AppException("Roadmap slug is invalid.");
+        }
+
+        var slug = baseSlug;
+        var suffix = 2;
+        while (await dbContext.Roadmaps.AnyAsync(x => x.Slug == slug && (!currentRoadmapId.HasValue || x.Id != currentRoadmapId.Value), cancellationToken))
+        {
+            slug = $"{baseSlug}-{suffix}";
+            suffix++;
+        }
+
+        return slug;
+    }
+
+    private static void ValidateRoadmapRequest(UpsertRoadmapRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            throw new AppException("Roadmap name is required.");
+        }
+    }
+
+    private static string? NormalizeOptional(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private static string Slugify(string value)
+    {
+        var normalized = value.Trim().ToLowerInvariant();
+        normalized = Regex.Replace(normalized, @"[^a-z0-9\s-]", string.Empty);
+        normalized = Regex.Replace(normalized, @"\s+", "-");
+        normalized = Regex.Replace(normalized, @"-+", "-");
+        return normalized.Trim('-');
     }
 
     private static RoadmapSummaryDto BuildSummary(Roadmap roadmap, IReadOnlyDictionary<Guid, Enrollment> enrollments, bool includeUnpublished)
