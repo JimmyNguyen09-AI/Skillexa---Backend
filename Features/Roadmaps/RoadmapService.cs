@@ -20,8 +20,10 @@ public sealed class RoadmapService(AppDbContext dbContext) : IRoadmapService
             .ToListAsync(cancellationToken);
 
         var enrollments = await LoadEnrollmentsAsync(userId, cancellationToken);
+        var completedLessonCounts = await LoadCompletedLessonCountsAsync(userId, cancellationToken);
+
         return roadmaps
-            .Select(x => BuildSummary(x, enrollments, includeUnpublished))
+            .Select(x => BuildSummary(x, enrollments, completedLessonCounts, includeUnpublished))
             .ToList();
     }
 
@@ -36,7 +38,8 @@ public sealed class RoadmapService(AppDbContext dbContext) : IRoadmapService
             ?? throw new AppException("Roadmap was not found.", HttpStatusCode.NotFound);
 
         var enrollments = await LoadEnrollmentsAsync(userId, cancellationToken);
-        return BuildDetail(roadmap, enrollments, includeUnpublished);
+        var completedLessonCounts = await LoadCompletedLessonCountsAsync(userId, cancellationToken);
+        return BuildDetail(roadmap, enrollments, completedLessonCounts, includeUnpublished);
     }
 
     public async Task<RoadmapDetailDto> CreateAsync(Guid userId, UpsertRoadmapRequest request, bool includeUnpublished, CancellationToken cancellationToken)
@@ -175,6 +178,16 @@ public sealed class RoadmapService(AppDbContext dbContext) : IRoadmapService
             .ToDictionaryAsync(x => x.CourseId, cancellationToken);
     }
 
+    private async Task<Dictionary<Guid, int>> LoadCompletedLessonCountsAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        return await dbContext.LessonProgresses
+            .AsNoTracking()
+            .Where(x => x.UserId == userId && x.IsCompleted)
+            .GroupBy(x => x.Lesson.CourseId)
+            .Select(group => new { CourseId = group.Key, CompletedLessons = group.Count() })
+            .ToDictionaryAsync(x => x.CourseId, x => x.CompletedLessons, cancellationToken);
+    }
+
     private async Task<string> EnsureUniqueSlugAsync(string? requestedSlug, string name, Guid? currentRoadmapId, CancellationToken cancellationToken)
     {
         var baseSlug = Slugify(string.IsNullOrWhiteSpace(requestedSlug) ? name : requestedSlug);
@@ -216,11 +229,14 @@ public sealed class RoadmapService(AppDbContext dbContext) : IRoadmapService
         return normalized.Trim('-');
     }
 
-    private static RoadmapSummaryDto BuildSummary(Roadmap roadmap, IReadOnlyDictionary<Guid, Enrollment> enrollments, bool includeUnpublished)
+    private static RoadmapSummaryDto BuildSummary(
+        Roadmap roadmap,
+        IReadOnlyDictionary<Guid, Enrollment> enrollments,
+        IReadOnlyDictionary<Guid, int> completedLessonCounts,
+        bool includeUnpublished)
     {
-        var courses = GetVisibleRoadmapCourses(roadmap, enrollments, includeUnpublished);
-        var progressPercent = CalculateProgressPercent(courses);
-        var completedCourses = courses.Count(x => x.IsCompleted);
+        var courses = GetVisibleRoadmapCourses(roadmap, enrollments, completedLessonCounts, includeUnpublished);
+        var stats = CalculateRoadmapStats(courses);
         var nextCourse = courses.FirstOrDefault(x => !x.IsCompleted);
 
         return new RoadmapSummaryDto(
@@ -229,17 +245,22 @@ public sealed class RoadmapService(AppDbContext dbContext) : IRoadmapService
             roadmap.Slug,
             roadmap.Description ?? string.Empty,
             courses.Count,
-            completedCourses,
-            progressPercent,
-            RoadmapStageHelper.GetStage(progressPercent),
+            stats.CompletedCourses,
+            stats.TotalLessons,
+            stats.CompletedLessons,
+            stats.ProgressPercent,
+            RoadmapStageHelper.GetStage(stats.ProgressPercent),
             nextCourse is null ? null : new RoadmapNextCourseDto(nextCourse.CourseId, nextCourse.Title, nextCourse.Slug, nextCourse.OrderIndex));
     }
 
-    private static RoadmapDetailDto BuildDetail(Roadmap roadmap, IReadOnlyDictionary<Guid, Enrollment> enrollments, bool includeUnpublished)
+    private static RoadmapDetailDto BuildDetail(
+        Roadmap roadmap,
+        IReadOnlyDictionary<Guid, Enrollment> enrollments,
+        IReadOnlyDictionary<Guid, int> completedLessonCounts,
+        bool includeUnpublished)
     {
-        var courses = GetVisibleRoadmapCourses(roadmap, enrollments, includeUnpublished);
-        var progressPercent = CalculateProgressPercent(courses);
-        var completedCourses = courses.Count(x => x.IsCompleted);
+        var courses = GetVisibleRoadmapCourses(roadmap, enrollments, completedLessonCounts, includeUnpublished);
+        var stats = CalculateRoadmapStats(courses);
         var nextCourse = courses.FirstOrDefault(x => !x.IsCompleted);
 
         return new RoadmapDetailDto(
@@ -248,14 +269,20 @@ public sealed class RoadmapService(AppDbContext dbContext) : IRoadmapService
             roadmap.Slug,
             roadmap.Description ?? string.Empty,
             courses.Count,
-            completedCourses,
-            progressPercent,
-            RoadmapStageHelper.GetStage(progressPercent),
+            stats.CompletedCourses,
+            stats.TotalLessons,
+            stats.CompletedLessons,
+            stats.ProgressPercent,
+            RoadmapStageHelper.GetStage(stats.ProgressPercent),
             nextCourse is null ? null : new RoadmapNextCourseDto(nextCourse.CourseId, nextCourse.Title, nextCourse.Slug, nextCourse.OrderIndex),
             courses);
     }
 
-    private static List<RoadmapCourseProgressDto> GetVisibleRoadmapCourses(Roadmap roadmap, IReadOnlyDictionary<Guid, Enrollment> enrollments, bool includeUnpublished)
+    private static List<RoadmapCourseProgressDto> GetVisibleRoadmapCourses(
+        Roadmap roadmap,
+        IReadOnlyDictionary<Guid, Enrollment> enrollments,
+        IReadOnlyDictionary<Guid, int> completedLessonCounts,
+        bool includeUnpublished)
     {
         return roadmap.RoadmapCourses
             .Where(x => includeUnpublished || x.Course.IsPublished)
@@ -263,8 +290,15 @@ public sealed class RoadmapService(AppDbContext dbContext) : IRoadmapService
             .Select(x =>
             {
                 enrollments.TryGetValue(x.CourseId, out var enrollment);
-                var progressPercent = enrollment?.ProgressPercent ?? 0;
-                var isCompleted = (enrollment?.CompletedAtUtc is not null) || progressPercent >= 100;
+                completedLessonCounts.TryGetValue(x.CourseId, out var completedLessonCount);
+                var lessonCount = x.Course.Lessons.Count(lesson => includeUnpublished || lesson.IsPublished);
+                var normalizedCompletedLessons = Math.Clamp(completedLessonCount, 0, lessonCount);
+                var progressPercent = lessonCount == 0
+                    ? (enrollment?.ProgressPercent ?? 0)
+                    : (int)Math.Round(normalizedCompletedLessons * 100d / lessonCount, MidpointRounding.AwayFromZero);
+                var isCompleted = lessonCount > 0
+                    ? normalizedCompletedLessons >= lessonCount
+                    : ((enrollment?.CompletedAtUtc is not null) || progressPercent >= 100);
 
                 return new RoadmapCourseProgressDto(
                     x.CourseId,
@@ -274,22 +308,26 @@ public sealed class RoadmapService(AppDbContext dbContext) : IRoadmapService
                     x.Course.Level.ToString(),
                     x.Course.ThumbnailUrl,
                     x.OrderIndex,
-                    x.Course.Lessons.Count(lesson => includeUnpublished || lesson.IsPublished),
+                    lessonCount,
+                    normalizedCompletedLessons,
                     x.Course.IsPublished,
-                    enrollment is not null,
+                    enrollment is not null || normalizedCompletedLessons > 0,
                     isCompleted,
                     progressPercent);
             })
             .ToList();
     }
 
-    private static int CalculateProgressPercent(IReadOnlyCollection<RoadmapCourseProgressDto> courses)
+    private static (int TotalLessons, int CompletedLessons, int CompletedCourses, int ProgressPercent) CalculateRoadmapStats(
+        IReadOnlyCollection<RoadmapCourseProgressDto> courses)
     {
-        if (courses.Count == 0)
-        {
-            return 0;
-        }
+        var totalLessons = courses.Sum(x => x.LessonCount);
+        var completedLessons = courses.Sum(x => Math.Clamp(x.CompletedLessons, 0, x.LessonCount));
+        var completedCourses = courses.Count(x => x.IsCompleted);
+        var progressPercent = totalLessons == 0
+            ? 0
+            : (int)Math.Round(completedLessons * 100d / totalLessons, MidpointRounding.AwayFromZero);
 
-        return (int)Math.Round(courses.Average(x => x.ProgressPercent), MidpointRounding.AwayFromZero);
+        return (totalLessons, completedLessons, completedCourses, progressPercent);
     }
 }
