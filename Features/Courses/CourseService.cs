@@ -25,7 +25,7 @@ public sealed class CourseService(AppDbContext dbContext) : ICourseService
                 x.Slug,
                 x.Description,
                 x.Level.ToString(),
-                x.Category.ToString(),
+                x.Categories,
                 x.ThumbnailUrl,
                 x.IsPublished,
                 x.AccessTier.ToString(),
@@ -63,7 +63,7 @@ public sealed class CourseService(AppDbContext dbContext) : ICourseService
             Slug = slug,
             Description = NormalizeOptional(request.Description),
             Level = request.Level,
-            Category = request.Category,
+            Categories = NormalizeCategories(request.Categories),
             ThumbnailUrl = NormalizeOptional(request.ThumbnailUrl),
             IsPublished = request.IsPublished,
             AccessTier = request.AccessTier
@@ -88,7 +88,7 @@ public sealed class CourseService(AppDbContext dbContext) : ICourseService
         course.Slug = await EnsureUniqueSlugAsync(request.Slug, request.Title, course.Id, cancellationToken);
         course.Description = NormalizeOptional(request.Description);
         course.Level = request.Level;
-        course.Category = request.Category;
+        course.Categories = NormalizeCategories(request.Categories);
         course.ThumbnailUrl = NormalizeOptional(request.ThumbnailUrl);
         course.IsPublished = request.IsPublished;
         course.AccessTier = request.AccessTier;
@@ -167,7 +167,7 @@ public sealed class CourseService(AppDbContext dbContext) : ICourseService
                 x.Course.Slug,
                 x.Course.Description,
                 x.Course.Level.ToString(),
-                x.Course.Category.ToString(),
+                x.Course.Categories,
                 x.Course.ThumbnailUrl,
                 x.Course.IsPublished,
                 x.Course.AccessTier.ToString(),
@@ -218,6 +218,21 @@ public sealed class CourseService(AppDbContext dbContext) : ICourseService
 
     private static string? NormalizeOptional(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
+    private static string[] NormalizeCategories(IReadOnlyCollection<CourseCategory>? categories)
+    {
+        if (categories is null || categories.Count == 0)
+        {
+            return [nameof(CourseCategory.Fundamentals)];
+        }
+
+        var normalized = categories
+            .Distinct()
+            .Select(category => category.ToString())
+            .ToArray();
+
+        return normalized.Length == 0 ? [nameof(CourseCategory.Fundamentals)] : normalized;
+    }
+
     private static CourseDetailDto Map(Course course)
         => new(
             course.Id,
@@ -225,7 +240,7 @@ public sealed class CourseService(AppDbContext dbContext) : ICourseService
             course.Slug,
             course.Description,
             course.Level.ToString(),
-            course.Category.ToString(),
+            course.Categories,
             course.ThumbnailUrl,
             course.IsPublished,
             course.AccessTier.ToString(),

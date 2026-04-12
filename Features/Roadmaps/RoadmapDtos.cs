@@ -12,7 +12,7 @@ public sealed record RoadmapCourseProgressDto(
     string Slug,
     string? Description,
     string Level,
-    string Category,
+    IReadOnlyList<string> Categories,
     string? ThumbnailUrl,
     int OrderIndex,
     int LessonCount,

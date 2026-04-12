@@ -150,11 +150,10 @@ namespace skillexa_backend.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("access_tier");
 
-                    b.Property<string>("Category")
+                    b.Property<string[]>("Categories")
                         .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)")
-                        .HasColumnName("category");
+                        .HasColumnType("text[]")
+                        .HasColumnName("categories");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone")

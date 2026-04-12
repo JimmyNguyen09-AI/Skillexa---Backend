@@ -306,7 +306,7 @@ public sealed class RoadmapService(AppDbContext dbContext) : IRoadmapService
                     x.Course.Slug,
                     x.Course.Description,
                     x.Course.Level.ToString(),
-                    x.Course.Category.ToString(),
+                    x.Course.Categories,
                     x.Course.ThumbnailUrl,
                     x.OrderIndex,
                     lessonCount,

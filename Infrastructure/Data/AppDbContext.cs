@@ -59,9 +59,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
                 .HasConversion<string>()
                 .HasMaxLength(20);
 
-            entity.Property(x => x.Category)
-                .HasConversion<string>()
-                .HasMaxLength(30);
+            entity.Property(x => x.Categories)
+                .HasColumnType("text[]");
 
             entity.Property(x => x.AccessTier)
                 .HasConversion<string>()

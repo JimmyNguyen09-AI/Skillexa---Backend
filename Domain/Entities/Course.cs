@@ -27,8 +27,8 @@ public sealed class Course
     [Column("level")]
     public CourseLevel Level { get; set; } = CourseLevel.Beginner;
 
-    [Column("category")]
-    public CourseCategory Category { get; set; } = CourseCategory.Fundamentals;
+    [Column("categories")]
+    public string[] Categories { get; set; } = [nameof(CourseCategory.Fundamentals)];
 
     [Column("thumbnail_url")]
     public string? ThumbnailUrl { get; set; }
