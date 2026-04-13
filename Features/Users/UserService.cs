@@ -13,20 +13,12 @@ public sealed class UserService(AppDbContext dbContext, IAuthService authService
 {
     public async Task<IReadOnlyList<UserSummaryDto>> GetUsersAsync(CancellationToken cancellationToken)
     {
-        return await dbContext.Users
+        var users = await dbContext.Users
             .OrderByDescending(x => x.CreatedAtUtc)
-            .Select(x => new UserSummaryDto(
-                x.Id,
-                x.Name,
-                x.Email,
-                x.Role.ToString(),
-                x.Status.ToString(),
-                x.MembershipPlan.ToString(),
-                x.AiAgentUsageCount,
-                x.MembershipPlan == MembershipPlan.Pro ? int.MaxValue : Math.Max(SubscriptionLimits.FreeAiAgentUsageLimit - x.AiAgentUsageCount, 0),
-                x.AvatarUrl,
-                x.CreatedAtUtc))
             .ToListAsync(cancellationToken);
+
+        var today = GetUtcToday();
+        return users.Select(user => MapSummary(user, today)).ToList();
     }
 
     public async Task<UserDetailDto> GetCurrentUserAsync(Guid userId, CancellationToken cancellationToken)
@@ -101,17 +93,51 @@ public sealed class UserService(AppDbContext dbContext, IAuthService authService
         => await dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId, cancellationToken)
             ?? throw new AppException("User was not found.", HttpStatusCode.NotFound);
 
-    private static UserDetailDto Map(User user)
-        => new(
+    private static UserSummaryDto MapSummary(User user, DateOnly today)
+    {
+        var (usageCount, usageRemaining) = GetDailyAiUsage(user, today);
+        return new UserSummaryDto(
             user.Id,
             user.Name,
             user.Email,
             user.Role.ToString(),
             user.Status.ToString(),
             user.MembershipPlan.ToString(),
-            user.AiAgentUsageCount,
-            user.MembershipPlan == MembershipPlan.Pro ? int.MaxValue : Math.Max(SubscriptionLimits.FreeAiAgentUsageLimit - user.AiAgentUsageCount, 0),
+            usageCount,
+            usageRemaining,
+            user.AvatarUrl,
+            user.CreatedAtUtc);
+    }
+
+    private static UserDetailDto Map(User user)
+    {
+        var (usageCount, usageRemaining) = GetDailyAiUsage(user, GetUtcToday());
+        return new UserDetailDto(
+            user.Id,
+            user.Name,
+            user.Email,
+            user.Role.ToString(),
+            user.Status.ToString(),
+            user.MembershipPlan.ToString(),
+            usageCount,
+            usageRemaining,
             user.AvatarUrl,
             user.CreatedAtUtc,
             user.UpdatedAtUtc);
+    }
+
+    private static (int UsageCount, int UsageRemaining) GetDailyAiUsage(User user, DateOnly today)
+    {
+        var hasUnlimitedUsage = user.Role == UserRole.Admin || user.MembershipPlan == MembershipPlan.Pro;
+        if (hasUnlimitedUsage)
+        {
+            return (user.AiAgentUsageCount, int.MaxValue);
+        }
+
+        var usageCount = user.AiAgentUsageDateUtc == today ? user.AiAgentUsageCount : 0;
+        var usageRemaining = Math.Max(SubscriptionLimits.FreeAiAgentUsageLimit - usageCount, 0);
+        return (usageCount, usageRemaining);
+    }
+
+    private static DateOnly GetUtcToday() => DateOnly.FromDateTime(DateTime.UtcNow);
 }

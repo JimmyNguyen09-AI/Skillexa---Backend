@@ -105,7 +105,14 @@ public sealed class AiAgentProxyService(
             .FirstOrDefaultAsync(x => x.Id == userId, cancellationToken)
             ?? throw new AppException("User was not found.", HttpStatusCode.NotFound);
 
-        return MapUsage(user);
+        var today = GetUtcToday();
+        var didReset = ResetUsageWindowIfNeeded(user, today);
+        if (didReset)
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        return MapUsage(user, today);
     }
 
     private async Task<User> GetAndValidateUserAsync(Guid userId, CancellationToken cancellationToken)
@@ -119,11 +126,14 @@ public sealed class AiAgentProxyService(
             throw new AppException("Your account is inactive.", HttpStatusCode.Forbidden);
         }
 
+        var today = GetUtcToday();
+        ResetUsageWindowIfNeeded(user, today);
+
         if (user.Role != UserRole.Admin &&
             user.MembershipPlan == MembershipPlan.Free &&
             user.AiAgentUsageCount >= SubscriptionLimits.FreeAiAgentUsageLimit)
         {
-            throw new AppException("You have used all 5 free AI requests. Upgrade to Pro to continue.", HttpStatusCode.Forbidden);
+            throw new AppException("You have used all 5 free AI requests for today. Upgrade to Pro to continue immediately, or come back tomorrow.", HttpStatusCode.Forbidden);
         }
 
         return user;
@@ -131,14 +141,18 @@ public sealed class AiAgentProxyService(
 
     private async Task<AiAgentUsageDto> IncrementUsageAsync(User user, CancellationToken cancellationToken)
     {
+        var today = GetUtcToday();
+        ResetUsageWindowIfNeeded(user, today);
+
         if (user.Role != UserRole.Admin && user.MembershipPlan == MembershipPlan.Free)
         {
             user.AiAgentUsageCount += 1;
+            user.AiAgentUsageDateUtc = today;
             user.UpdatedAtUtc = DateTime.UtcNow;
             await dbContext.SaveChangesAsync(cancellationToken);
         }
 
-        return MapUsage(user);
+        return MapUsage(user, today);
     }
 
     private HttpRequestMessage BuildRequest(HttpMethod method, string relativePath, string requestBody, string? authorizationHeader)
@@ -162,16 +176,37 @@ public sealed class AiAgentProxyService(
         return request;
     }
 
-    private static AiAgentUsageDto MapUsage(User user)
+    private static AiAgentUsageDto MapUsage(User user, DateOnly? today = null)
     {
         var hasUnlimitedUsage = user.Role == UserRole.Admin || user.MembershipPlan == MembershipPlan.Pro;
         var usageLimit = hasUnlimitedUsage ? int.MaxValue : SubscriptionLimits.FreeAiAgentUsageLimit;
+        var effectiveUsageCount = GetEffectiveUsageCount(user, today ?? GetUtcToday());
         var usageRemaining = hasUnlimitedUsage
             ? int.MaxValue
-            : Math.Max(SubscriptionLimits.FreeAiAgentUsageLimit - user.AiAgentUsageCount, 0);
+            : Math.Max(SubscriptionLimits.FreeAiAgentUsageLimit - effectiveUsageCount, 0);
 
-        return new AiAgentUsageDto(user.MembershipPlan.ToString(), user.AiAgentUsageCount, usageRemaining, usageLimit);
+        return new AiAgentUsageDto(user.MembershipPlan.ToString(), effectiveUsageCount, usageRemaining, usageLimit);
     }
+
+    private static bool ResetUsageWindowIfNeeded(User user, DateOnly today)
+    {
+        if (user.Role == UserRole.Admin || user.MembershipPlan == MembershipPlan.Pro || user.AiAgentUsageDateUtc == today)
+        {
+            return false;
+        }
+
+        user.AiAgentUsageCount = 0;
+        user.AiAgentUsageDateUtc = today;
+        user.UpdatedAtUtc = DateTime.UtcNow;
+        return true;
+    }
+
+    private static int GetEffectiveUsageCount(User user, DateOnly today)
+        => user.Role == UserRole.Admin || user.MembershipPlan == MembershipPlan.Pro || user.AiAgentUsageDateUtc == today
+            ? user.AiAgentUsageCount
+            : 0;
+
+    private static DateOnly GetUtcToday() => DateOnly.FromDateTime(DateTime.UtcNow);
 
     private static AppException CreateUpstreamException(string? responseBody, HttpStatusCode statusCode)
     {

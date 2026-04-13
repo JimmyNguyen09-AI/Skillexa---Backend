@@ -39,6 +39,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.MembershipPlan)
                 .HasConversion<string>()
                 .HasMaxLength(20);
+
+            entity.Property(x => x.AiAgentUsageDateUtc)
+                .HasColumnType("date");
         });
 
         builder.Entity<RefreshToken>(entity =>

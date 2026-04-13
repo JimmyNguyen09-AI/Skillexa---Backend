@@ -41,6 +41,9 @@ public sealed class User
     [Column("ai_agent_usage_count")]
     public int AiAgentUsageCount { get; set; }
 
+    [Column("ai_agent_usage_date_utc")]
+    public DateOnly? AiAgentUsageDateUtc { get; set; }
+
     [Column("created_at_utc")]
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
