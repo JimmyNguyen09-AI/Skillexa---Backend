@@ -3,11 +3,12 @@ using Microsoft.EntityFrameworkCore;
 using skillexa_backend.Common.Exceptions;
 using skillexa_backend.Domain.Entities;
 using skillexa_backend.Domain.Enums;
+using skillexa_backend.Features.Gamification;
 using skillexa_backend.Infrastructure.Data;
 
 namespace skillexa_backend.Features.Lessons;
 
-public sealed class LessonService(AppDbContext dbContext) : ILessonService
+public sealed class LessonService(AppDbContext dbContext, IGamificationService gamification) : ILessonService
 {
     public async Task<IReadOnlyList<LessonDto>> GetLessonsByCourseAsync(Guid courseId, bool includeUnpublished, Guid? viewerUserId, CancellationToken cancellationToken)
     {
@@ -158,6 +159,8 @@ public sealed class LessonService(AppDbContext dbContext) : ILessonService
         var progress = await dbContext.LessonProgresses
             .FirstOrDefaultAsync(x => x.UserId == userId && x.LessonId == lessonId, cancellationToken);
 
+        var wasAlreadyCompleted = progress?.IsCompleted ?? false;
+
         if (progress is null)
         {
             progress = new LessonProgress { UserId = userId, LessonId = lessonId };
@@ -179,7 +182,23 @@ public sealed class LessonService(AppDbContext dbContext) : ILessonService
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return new LessonProgressDto(lessonId, userId, progress.IsCompleted, progress.CompletedAtUtc, enrollment.ProgressPercent);
+        // Award XP only on new completion (not toggling back on, not re-completing)
+        var xpAward = request.IsCompleted && !wasAlreadyCompleted
+            ? await gamification.AwardLessonXpAsync(userId, cancellationToken)
+            : new Gamification.XpAwardDto(0, 0, 1, "Newbie", 0, []);
+
+        return new LessonProgressDto(
+            lessonId,
+            userId,
+            progress.IsCompleted,
+            progress.CompletedAtUtc,
+            enrollment.ProgressPercent,
+            xpAward.XpEarned,
+            xpAward.NewTotalXp,
+            xpAward.NewLevel,
+            xpAward.LevelTitle,
+            xpAward.NewStreak,
+            xpAward.BadgesEarned);
     }
 
     private async Task EnsureCourseAccessAsync(Guid courseId, Guid? viewerUserId, CancellationToken cancellationToken)

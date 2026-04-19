@@ -10,6 +10,7 @@ using skillexa_backend.Features.Ai;
 using skillexa_backend.Features.Comments;
 using skillexa_backend.Features.Courses;
 using skillexa_backend.Features.Feedback;
+using skillexa_backend.Features.Gamification;
 using skillexa_backend.Features.Lessons;
 using skillexa_backend.Features.Quizzes;
 using skillexa_backend.Features.Roadmaps;
@@ -145,6 +146,7 @@ builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ICourseService, CourseService>();
+builder.Services.AddScoped<IGamificationService, GamificationService>();
 builder.Services.AddScoped<ILessonService, LessonService>();
 builder.Services.AddScoped<IQuizService, QuizService>();
 builder.Services.AddScoped<ICommentService, CommentService>();
@@ -195,6 +197,7 @@ app.MapStatsEndpoints();
 app.MapFeedbackEndpoints();
 app.MapRoadmapEndpoints();
 app.MapAiAgentEndpoints();
+app.MapGamificationEndpoints();
 
 app.Run();
 

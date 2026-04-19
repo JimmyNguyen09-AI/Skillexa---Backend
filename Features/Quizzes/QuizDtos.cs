@@ -14,4 +14,17 @@ public sealed record SubmitQuizRequest(IReadOnlyList<QuizAnswerRequest> Answers)
 
 public sealed record QuizResultQuestionDto(Guid QuestionId, string Prompt, int SelectedOptionIndex, int CorrectOptionIndex, bool IsCorrect, string? Explanation);
 
-public sealed record QuizResultDto(Guid AttemptId, Guid QuizId, int Score, int CorrectCount, int TotalQuestions, DateTime SubmittedAtUtc, IReadOnlyList<QuizResultQuestionDto> Questions);
+public sealed record QuizResultDto(
+    Guid AttemptId,
+    Guid QuizId,
+    int Score,
+    int CorrectCount,
+    int TotalQuestions,
+    DateTime SubmittedAtUtc,
+    IReadOnlyList<QuizResultQuestionDto> Questions,
+    int XpEarned,
+    int NewTotalXp,
+    int NewLevel,
+    string LevelTitle,
+    int NewStreak,
+    IReadOnlyList<string> BadgesEarned);

@@ -44,6 +44,18 @@ public sealed class User
     [Column("ai_agent_usage_date_utc")]
     public DateOnly? AiAgentUsageDateUtc { get; set; }
 
+    [Column("xp")]
+    public int Xp { get; set; }
+
+    [Column("streak_days")]
+    public int StreakDays { get; set; }
+
+    [Column("last_streak_date_utc")]
+    public DateOnly? LastStreakDateUtc { get; set; }
+
+    [Column("badges")]
+    public List<string> Badges { get; set; } = [];
+
     [Column("created_at_utc")]
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 

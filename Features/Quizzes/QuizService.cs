@@ -3,11 +3,12 @@ using Microsoft.EntityFrameworkCore;
 using skillexa_backend.Common.Exceptions;
 using skillexa_backend.Domain.Entities;
 using skillexa_backend.Domain.Enums;
+using skillexa_backend.Features.Gamification;
 using skillexa_backend.Infrastructure.Data;
 
 namespace skillexa_backend.Features.Quizzes;
 
-public sealed class QuizService(AppDbContext dbContext) : IQuizService
+public sealed class QuizService(AppDbContext dbContext, IGamificationService gamification) : IQuizService
 {
     public async Task<QuizDto?> GetByLessonAsync(Guid lessonId, bool includeAnswers, Guid? viewerUserId, CancellationToken cancellationToken)
     {
@@ -154,7 +155,22 @@ public sealed class QuizService(AppDbContext dbContext) : IQuizService
         dbContext.QuizAttempts.Add(attempt);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return new QuizResultDto(attempt.Id, quiz.Id, attempt.Score, attempt.CorrectCount, attempt.TotalQuestions, attempt.SubmittedAtUtc, resultQuestions);
+        var xpAward = await gamification.AwardQuizXpAsync(userId, attempt.CorrectCount, attempt.TotalQuestions, cancellationToken);
+
+        return new QuizResultDto(
+            attempt.Id,
+            quiz.Id,
+            attempt.Score,
+            attempt.CorrectCount,
+            attempt.TotalQuestions,
+            attempt.SubmittedAtUtc,
+            resultQuestions,
+            xpAward.XpEarned,
+            xpAward.NewTotalXp,
+            xpAward.NewLevel,
+            xpAward.LevelTitle,
+            xpAward.NewStreak,
+            xpAward.BadgesEarned);
     }
 
     private async Task EnsureEnrollmentAsync(Guid userId, Guid courseId, CancellationToken cancellationToken)

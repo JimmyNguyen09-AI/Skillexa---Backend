@@ -42,6 +42,12 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
             entity.Property(x => x.AiAgentUsageDateUtc)
                 .HasColumnType("date");
+
+            entity.Property(x => x.LastStreakDateUtc)
+                .HasColumnType("date");
+
+            entity.Property(x => x.Badges)
+                .HasColumnType("text[]");
         });
 
         builder.Entity<RefreshToken>(entity =>
