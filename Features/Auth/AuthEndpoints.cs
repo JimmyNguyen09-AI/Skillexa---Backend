@@ -91,12 +91,22 @@ public static class AuthEndpoints
         return Results.Challenge(props, [providerScheme]);
     }
 
-    private static string BuildFrontendSuccessRedirect(HttpContext httpContext, IConfiguration configuration, AuthTokenResponse _)
+    private static string BuildFrontendSuccessRedirect(HttpContext httpContext, IConfiguration configuration, AuthTokenResponse tokens)
     {
-        // Tokens are delivered via the short-lived HttpOnly-false cookie written by
-        // WriteTemporaryOAuthSessionCookie — never in the URL to avoid leaking them
-        // in browser history, CDN logs, and Referer headers.
-        return ResolveFrontendCallbackUrl(httpContext, configuration);
+        var callbackUrl = ResolveFrontendCallbackUrl(httpContext, configuration);
+        var query = new Dictionary<string, string?>
+        {
+            ["accessToken"] = tokens.AccessToken,
+            ["refreshToken"] = tokens.RefreshToken,
+            ["accessTokenExpiresAtUtc"] = tokens.AccessTokenExpiresAtUtc.ToString("O"),
+            ["refreshTokenExpiresAtUtc"] = tokens.RefreshTokenExpiresAtUtc.ToString("O"),
+            ["userId"] = tokens.UserId.ToString(),
+            ["email"] = tokens.Email,
+            ["name"] = tokens.Name,
+            ["role"] = tokens.Role
+        };
+
+        return QueryHelpers.AddQueryString(callbackUrl, query);
     }
 
     private static string BuildFrontendErrorRedirect(HttpContext httpContext, IConfiguration configuration, string message)
