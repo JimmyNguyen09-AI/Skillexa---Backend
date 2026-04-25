@@ -91,22 +91,12 @@ public static class AuthEndpoints
         return Results.Challenge(props, [providerScheme]);
     }
 
-    private static string BuildFrontendSuccessRedirect(HttpContext httpContext, IConfiguration configuration, AuthTokenResponse tokens)
+    private static string BuildFrontendSuccessRedirect(HttpContext httpContext, IConfiguration configuration, AuthTokenResponse _)
     {
-        var callbackUrl = ResolveFrontendCallbackUrl(httpContext, configuration);
-        var query = new Dictionary<string, string?>
-        {
-            ["accessToken"] = tokens.AccessToken,
-            ["refreshToken"] = tokens.RefreshToken,
-            ["accessTokenExpiresAtUtc"] = tokens.AccessTokenExpiresAtUtc.ToString("O"),
-            ["refreshTokenExpiresAtUtc"] = tokens.RefreshTokenExpiresAtUtc.ToString("O"),
-            ["userId"] = tokens.UserId.ToString(),
-            ["email"] = tokens.Email,
-            ["name"] = tokens.Name,
-            ["role"] = tokens.Role
-        };
-
-        return QueryHelpers.AddQueryString(callbackUrl, query);
+        // Tokens are delivered via the short-lived HttpOnly-false cookie written by
+        // WriteTemporaryOAuthSessionCookie — never in the URL to avoid leaking them
+        // in browser history, CDN logs, and Referer headers.
+        return ResolveFrontendCallbackUrl(httpContext, configuration);
     }
 
     private static string BuildFrontendErrorRedirect(HttpContext httpContext, IConfiguration configuration, string message)
@@ -174,9 +164,14 @@ public static class AuthEndpoints
         return origins;
     }
 
+    private static readonly System.Text.Json.JsonSerializerOptions _camelCaseOptions = new()
+    {
+        PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+    };
+
     private static void WriteTemporaryOAuthSessionCookie(HttpContext httpContext, AuthTokenResponse tokens)
     {
-        var payload = JsonSerializer.Serialize(tokens);
+        var payload = JsonSerializer.Serialize(tokens, _camelCaseOptions);
         var encoded = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(payload));
 
         httpContext.Response.Cookies.Append("skillexa_oauth_session", encoded, new CookieOptions

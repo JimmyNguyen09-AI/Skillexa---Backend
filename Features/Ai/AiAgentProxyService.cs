@@ -173,6 +173,12 @@ public sealed class AiAgentProxyService(
             request.Headers.Authorization = authValue;
         }
 
+        var internalApiKey = configuration["AiAgent:InternalApiKey"];
+        if (!string.IsNullOrWhiteSpace(internalApiKey))
+        {
+            request.Headers.TryAddWithoutValidation("X-Internal-Api-Key", internalApiKey);
+        }
+
         return request;
     }
 
