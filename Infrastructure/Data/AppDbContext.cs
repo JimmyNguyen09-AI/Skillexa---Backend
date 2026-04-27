@@ -21,6 +21,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<Feedback> Feedback => Set<Feedback>();
     public DbSet<Roadmap> Roadmaps => Set<Roadmap>();
     public DbSet<RoadmapCourse> RoadmapCourses => Set<RoadmapCourse>();
+    public DbSet<InterviewPractice> InterviewPractices => Set<InterviewPractice>();
+    public DbSet<InterviewPracticeContentBlock> InterviewPracticeContentBlocks => Set<InterviewPracticeContentBlock>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -223,6 +225,40 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.HasOne(x => x.Course)
                 .WithMany(x => x.RoadmapCourses)
                 .HasForeignKey(x => x.CourseId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<InterviewPractice>(entity =>
+        {
+            entity.HasIndex(x => x.Slug).IsUnique();
+
+            entity.Property(x => x.Level)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            entity.Property(x => x.Categories)
+                .HasColumnType("text[]");
+        });
+
+        builder.Entity<InterviewPracticeContentBlock>(entity =>
+        {
+            entity.HasIndex(x => new { x.InterviewPracticeId, x.OrderIndex });
+
+            entity.Property(x => x.Type)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            entity.Property(x => x.CalloutVariant)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            entity.Property(x => x.ImageWidth)
+                .HasConversion<string>()
+                .HasMaxLength(10);
+
+            entity.HasOne(x => x.InterviewPractice)
+                .WithMany(x => x.ContentBlocks)
+                .HasForeignKey(x => x.InterviewPracticeId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

@@ -14,6 +14,7 @@ using skillexa_backend.Features.Gamification;
 using skillexa_backend.Features.Lessons;
 using skillexa_backend.Features.Quizzes;
 using skillexa_backend.Features.Roadmaps;
+using skillexa_backend.Features.InterviewPractice;
 using skillexa_backend.Features.Stats;
 using skillexa_backend.Features.Users;
 using skillexa_backend.Infrastructure.Data;
@@ -153,6 +154,7 @@ builder.Services.AddScoped<ICommentService, CommentService>();
 builder.Services.AddScoped<IStatsService, StatsService>();
 builder.Services.AddScoped<IFeedbackService, FeedbackService>();
 builder.Services.AddScoped<IRoadmapService, RoadmapService>();
+builder.Services.AddScoped<IInterviewPracticeService, InterviewPracticeService>();
 builder.Services.AddScoped<IAiAgentProxyService, AiAgentProxyService>();
 builder.Services.AddHttpClient("AiAgentProxy");
 
@@ -198,6 +200,7 @@ app.MapFeedbackEndpoints();
 app.MapRoadmapEndpoints();
 app.MapAiAgentEndpoints();
 app.MapGamificationEndpoints();
+app.MapInterviewPracticeEndpoints();
 
 app.Run();
 
