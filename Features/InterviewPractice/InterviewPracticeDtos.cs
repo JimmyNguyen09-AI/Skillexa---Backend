@@ -3,25 +3,23 @@ using skillexa_backend.Domain.Enums;
 namespace skillexa_backend.Features.InterviewPractice;
 
 public sealed record CreateInterviewPracticeRequest(
+    Guid TopicId,
     string Title,
     string? Slug,
     string Question,
-    string? Description,
     CourseLevel Level,
-    IReadOnlyList<CourseCategory>? Categories,
-    string? ThumbnailUrl,
     bool IsPublished,
+    int OrderIndex,
     IReadOnlyList<InterviewPracticeContentBlockRequest> ContentBlocks);
 
 public sealed record UpdateInterviewPracticeRequest(
+    Guid TopicId,
     string Title,
     string? Slug,
     string Question,
-    string? Description,
     CourseLevel Level,
-    IReadOnlyList<CourseCategory>? Categories,
-    string? ThumbnailUrl,
     bool IsPublished,
+    int OrderIndex,
     IReadOnlyList<InterviewPracticeContentBlockRequest> ContentBlocks);
 
 public sealed record InterviewPracticeContentBlockRequest(
@@ -56,24 +54,22 @@ public sealed record InterviewPracticeSummaryDto(
     string Title,
     string Slug,
     string Question,
-    string? Description,
     string Level,
-    IReadOnlyList<string> Categories,
-    string? ThumbnailUrl,
     bool IsPublished,
+    int OrderIndex,
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc);
 
 public sealed record InterviewPracticeDetailDto(
     Guid Id,
+    Guid TopicId,
+    string TopicSlug,
     string Title,
     string Slug,
     string Question,
-    string? Description,
     string Level,
-    IReadOnlyList<string> Categories,
-    string? ThumbnailUrl,
     bool IsPublished,
+    int OrderIndex,
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc,
     IReadOnlyList<InterviewPracticeContentBlockDto> ContentBlocks);

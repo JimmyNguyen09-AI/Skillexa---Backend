@@ -21,6 +21,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<Feedback> Feedback => Set<Feedback>();
     public DbSet<Roadmap> Roadmaps => Set<Roadmap>();
     public DbSet<RoadmapCourse> RoadmapCourses => Set<RoadmapCourse>();
+    public DbSet<InterviewTopic> InterviewTopics => Set<InterviewTopic>();
     public DbSet<InterviewPractice> InterviewPractices => Set<InterviewPractice>();
     public DbSet<InterviewPracticeContentBlock> InterviewPracticeContentBlocks => Set<InterviewPracticeContentBlock>();
 
@@ -228,6 +229,11 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        builder.Entity<InterviewTopic>(entity =>
+        {
+            entity.HasIndex(x => x.Slug).IsUnique();
+        });
+
         builder.Entity<InterviewPractice>(entity =>
         {
             entity.HasIndex(x => x.Slug).IsUnique();
@@ -236,8 +242,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
                 .HasConversion<string>()
                 .HasMaxLength(20);
 
-            entity.Property(x => x.Categories)
-                .HasColumnType("text[]");
+            entity.HasOne(x => x.Topic)
+                .WithMany(x => x.Questions)
+                .HasForeignKey(x => x.TopicId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<InterviewPracticeContentBlock>(entity =>

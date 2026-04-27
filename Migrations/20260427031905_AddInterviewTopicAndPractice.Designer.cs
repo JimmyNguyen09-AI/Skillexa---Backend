@@ -13,8 +13,8 @@ using skillexa_backend.Infrastructure.Data;
 namespace skillexa_backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260427025345_AddInterviewPractice")]
-    partial class AddInterviewPractice
+    [Migration("20260427031905_AddInterviewTopicAndPractice")]
+    partial class AddInterviewTopicAndPractice
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -283,18 +283,9 @@ namespace skillexa_backend.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.PrimitiveCollection<string[]>("Categories")
-                        .IsRequired()
-                        .HasColumnType("text[]")
-                        .HasColumnName("categories");
-
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at_utc");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("text")
-                        .HasColumnName("description");
 
                     b.Property<bool>("IsPublished")
                         .HasColumnType("boolean")
@@ -305,6 +296,10 @@ namespace skillexa_backend.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
                         .HasColumnName("level");
+
+                    b.Property<int>("OrderIndex")
+                        .HasColumnType("integer")
+                        .HasColumnName("order_index");
 
                     b.Property<string>("Question")
                         .IsRequired()
@@ -317,15 +312,15 @@ namespace skillexa_backend.Migrations
                         .HasColumnType("character varying(320)")
                         .HasColumnName("slug");
 
-                    b.Property<string>("ThumbnailUrl")
-                        .HasColumnType("text")
-                        .HasColumnName("thumbnail_url");
-
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)")
                         .HasColumnName("title");
+
+                    b.Property<Guid>("TopicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("topic_id");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone")
@@ -335,6 +330,8 @@ namespace skillexa_backend.Migrations
 
                     b.HasIndex("Slug")
                         .IsUnique();
+
+                    b.HasIndex("TopicId");
 
                     b.ToTable("interview_practices");
                 });
@@ -406,6 +403,57 @@ namespace skillexa_backend.Migrations
                     b.HasIndex("InterviewPracticeId", "OrderIndex");
 
                     b.ToTable("interview_practice_content_blocks");
+                });
+
+            modelBuilder.Entity("skillexa_backend.Domain.Entities.InterviewTopic", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("IsPublished")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_published");
+
+                    b.Property<int>("OrderIndex")
+                        .HasColumnType("integer")
+                        .HasColumnName("order_index");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(220)
+                        .HasColumnType("character varying(220)")
+                        .HasColumnName("slug");
+
+                    b.Property<string>("ThumbnailUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("thumbnail_url");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("title");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Slug")
+                        .IsUnique();
+
+                    b.ToTable("interview_topics");
                 });
 
             modelBuilder.Entity("skillexa_backend.Domain.Entities.Lesson", b =>
@@ -890,6 +938,17 @@ namespace skillexa_backend.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("skillexa_backend.Domain.Entities.InterviewPractice", b =>
+                {
+                    b.HasOne("skillexa_backend.Domain.Entities.InterviewTopic", "Topic")
+                        .WithMany("Questions")
+                        .HasForeignKey("TopicId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Topic");
+                });
+
             modelBuilder.Entity("skillexa_backend.Domain.Entities.InterviewPracticeContentBlock", b =>
                 {
                     b.HasOne("skillexa_backend.Domain.Entities.InterviewPractice", "InterviewPractice")
@@ -1038,6 +1097,11 @@ namespace skillexa_backend.Migrations
             modelBuilder.Entity("skillexa_backend.Domain.Entities.InterviewPractice", b =>
                 {
                     b.Navigation("ContentBlocks");
+                });
+
+            modelBuilder.Entity("skillexa_backend.Domain.Entities.InterviewTopic", b =>
+                {
+                    b.Navigation("Questions");
                 });
 
             modelBuilder.Entity("skillexa_backend.Domain.Entities.Lesson", b =>

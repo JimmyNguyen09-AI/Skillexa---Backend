@@ -154,6 +154,7 @@ builder.Services.AddScoped<ICommentService, CommentService>();
 builder.Services.AddScoped<IStatsService, StatsService>();
 builder.Services.AddScoped<IFeedbackService, FeedbackService>();
 builder.Services.AddScoped<IRoadmapService, RoadmapService>();
+builder.Services.AddScoped<IInterviewTopicService, InterviewTopicService>();
 builder.Services.AddScoped<IInterviewPracticeService, InterviewPracticeService>();
 builder.Services.AddScoped<IAiAgentProxyService, AiAgentProxyService>();
 builder.Services.AddHttpClient("AiAgentProxy");
@@ -200,6 +201,7 @@ app.MapFeedbackEndpoints();
 app.MapRoadmapEndpoints();
 app.MapAiAgentEndpoints();
 app.MapGamificationEndpoints();
+app.MapInterviewTopicEndpoints();
 app.MapInterviewPracticeEndpoints();
 
 app.Run();

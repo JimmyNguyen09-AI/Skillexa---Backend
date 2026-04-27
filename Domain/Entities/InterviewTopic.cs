@@ -1,35 +1,30 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using skillexa_backend.Domain.Enums;
 
 namespace skillexa_backend.Domain.Entities;
 
-[Table("interview_practices")]
-public sealed class InterviewPractice
+[Table("interview_topics")]
+public sealed class InterviewTopic
 {
     [Key]
     [Column("id")]
     public Guid Id { get; set; } = Guid.NewGuid();
 
-    [Column("topic_id")]
-    public Guid TopicId { get; set; }
-
     [Required]
-    [MaxLength(300)]
+    [MaxLength(200)]
     [Column("title")]
     public string Title { get; set; } = string.Empty;
 
     [Required]
-    [MaxLength(320)]
+    [MaxLength(220)]
     [Column("slug")]
     public string Slug { get; set; } = string.Empty;
 
-    [Required]
-    [Column("question")]
-    public string Question { get; set; } = string.Empty;
+    [Column("description")]
+    public string? Description { get; set; }
 
-    [Column("level")]
-    public CourseLevel Level { get; set; } = CourseLevel.Beginner;
+    [Column("thumbnail_url")]
+    public string? ThumbnailUrl { get; set; }
 
     [Column("is_published")]
     public bool IsPublished { get; set; }
@@ -43,8 +38,5 @@ public sealed class InterviewPractice
     [Column("updated_at_utc")]
     public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
 
-    [ForeignKey(nameof(TopicId))]
-    public InterviewTopic Topic { get; set; } = null!;
-
-    public ICollection<InterviewPracticeContentBlock> ContentBlocks { get; set; } = [];
+    public ICollection<InterviewPractice> Questions { get; set; } = [];
 }

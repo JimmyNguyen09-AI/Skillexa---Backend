@@ -9,12 +9,6 @@ public static class InterviewPracticeEndpoints
     {
         var group = app.MapGroup("/api/interview-practice").WithTags("InterviewPractice");
 
-        group.MapGet("/", async (HttpContext httpContext, IInterviewPracticeService service, CancellationToken ct) =>
-        {
-            var result = await service.GetAllAsync(httpContext.User.GetRequiredUserId(), ct);
-            return Results.Ok(ApiResponse<IReadOnlyList<InterviewPracticeSummaryDto>>.Ok(result));
-        }).RequireAuthorization();
-
         group.MapGet("/{slug}", async (string slug, HttpContext httpContext, IInterviewPracticeService service, CancellationToken ct) =>
         {
             var result = await service.GetBySlugAsync(slug, httpContext.User.GetRequiredUserId(), ct);
@@ -24,19 +18,19 @@ public static class InterviewPracticeEndpoints
         group.MapPost("/", async (CreateInterviewPracticeRequest request, IInterviewPracticeService service, CancellationToken ct) =>
         {
             var result = await service.CreateAsync(request, ct);
-            return Results.Created($"/api/interview-practice/{result.Slug}", ApiResponse<InterviewPracticeDetailDto>.Ok(result, "Interview practice created."));
+            return Results.Created($"/api/interview-practice/{result.Slug}", ApiResponse<InterviewPracticeDetailDto>.Ok(result, "Question created."));
         }).RequireAuthorization("AdminOnly");
 
         group.MapPut("/{id:guid}", async (Guid id, UpdateInterviewPracticeRequest request, IInterviewPracticeService service, CancellationToken ct) =>
         {
             var result = await service.UpdateAsync(id, request, ct);
-            return Results.Ok(ApiResponse<InterviewPracticeDetailDto>.Ok(result, "Interview practice updated."));
+            return Results.Ok(ApiResponse<InterviewPracticeDetailDto>.Ok(result, "Question updated."));
         }).RequireAuthorization("AdminOnly");
 
         group.MapDelete("/{id:guid}", async (Guid id, IInterviewPracticeService service, CancellationToken ct) =>
         {
             await service.DeleteAsync(id, ct);
-            return Results.Ok(ApiResponse<string>.Ok("ok", "Interview practice deleted."));
+            return Results.Ok(ApiResponse<string>.Ok("ok", "Question deleted."));
         }).RequireAuthorization("AdminOnly");
 
         return app;

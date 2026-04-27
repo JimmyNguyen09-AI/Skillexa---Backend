@@ -10,26 +10,6 @@ namespace skillexa_backend.Features.InterviewPractice;
 
 public sealed class InterviewPracticeService(AppDbContext dbContext) : IInterviewPracticeService
 {
-    public async Task<IReadOnlyList<InterviewPracticeSummaryDto>> GetAllAsync(Guid userId, CancellationToken ct)
-    {
-        await EnsureProAccessAsync(userId, ct);
-
-        var isAdmin = await dbContext.Users
-            .Where(x => x.Id == userId)
-            .Select(x => x.Role == UserRole.Admin)
-            .FirstOrDefaultAsync(ct);
-
-        return await dbContext.InterviewPractices
-            .AsQueryable()
-            .Where(x => isAdmin || x.IsPublished)
-            .OrderByDescending(x => x.CreatedAtUtc)
-            .Select(x => new InterviewPracticeSummaryDto(
-                x.Id, x.Title, x.Slug, x.Question, x.Description,
-                x.Level.ToString(), x.Categories, x.ThumbnailUrl,
-                x.IsPublished, x.CreatedAtUtc, x.UpdatedAtUtc))
-            .ToListAsync(ct);
-    }
-
     public async Task<InterviewPracticeDetailDto> GetBySlugAsync(string slug, Guid userId, CancellationToken ct)
     {
         await EnsureProAccessAsync(userId, ct);
@@ -41,6 +21,7 @@ public sealed class InterviewPracticeService(AppDbContext dbContext) : IIntervie
 
         var practice = await dbContext.InterviewPractices
             .Include(x => x.ContentBlocks)
+            .Include(x => x.Topic)
             .FirstOrDefaultAsync(x => x.Slug == slug, ct)
             ?? throw new AppException("Interview practice not found.", HttpStatusCode.NotFound);
 
@@ -53,26 +34,31 @@ public sealed class InterviewPracticeService(AppDbContext dbContext) : IIntervie
     public async Task<InterviewPracticeDetailDto> CreateAsync(CreateInterviewPracticeRequest request, CancellationToken ct)
     {
         ValidateRequest(request.Title, request.Question);
+
+        var topicExists = await dbContext.InterviewTopics.AnyAsync(x => x.Id == request.TopicId, ct);
+        if (!topicExists)
+            throw new AppException("Interview topic not found.", HttpStatusCode.NotFound);
+
         var slug = await EnsureUniqueSlugAsync(request.Slug, request.Title, null, ct);
 
         var practice = new InterviewPracticeEntity
         {
+            TopicId = request.TopicId,
             Title = request.Title.Trim(),
             Slug = slug,
             Question = request.Question.Trim(),
-            Description = Normalize(request.Description),
             Level = request.Level,
-            Categories = NormalizeCategories(request.Categories),
-            ThumbnailUrl = Normalize(request.ThumbnailUrl),
             IsPublished = request.IsPublished,
+            OrderIndex = request.OrderIndex,
         };
 
         dbContext.InterviewPractices.Add(practice);
         await dbContext.SaveChangesAsync(ct);
 
-        UpsertBlocks(practice, request.ContentBlocks);
+        UpsertBlocks(practice, request.ContentBlocks ?? []);
         await dbContext.SaveChangesAsync(ct);
 
+        await dbContext.Entry(practice).Reference(x => x.Topic).LoadAsync(ct);
         return Map(practice);
     }
 
@@ -80,25 +66,30 @@ public sealed class InterviewPracticeService(AppDbContext dbContext) : IIntervie
     {
         ValidateRequest(request.Title, request.Question);
 
+        var topicExists = await dbContext.InterviewTopics.AnyAsync(x => x.Id == request.TopicId, ct);
+        if (!topicExists)
+            throw new AppException("Interview topic not found.", HttpStatusCode.NotFound);
+
         var practice = await dbContext.InterviewPractices
             .Include(x => x.ContentBlocks)
+            .Include(x => x.Topic)
             .FirstOrDefaultAsync(x => x.Id == id, ct)
             ?? throw new AppException("Interview practice not found.", HttpStatusCode.NotFound);
 
+        practice.TopicId = request.TopicId;
         practice.Title = request.Title.Trim();
         practice.Slug = await EnsureUniqueSlugAsync(request.Slug, request.Title, practice.Id, ct);
         practice.Question = request.Question.Trim();
-        practice.Description = Normalize(request.Description);
         practice.Level = request.Level;
-        practice.Categories = NormalizeCategories(request.Categories);
-        practice.ThumbnailUrl = Normalize(request.ThumbnailUrl);
         practice.IsPublished = request.IsPublished;
+        practice.OrderIndex = request.OrderIndex;
         practice.UpdatedAtUtc = DateTime.UtcNow;
 
         dbContext.InterviewPracticeContentBlocks.RemoveRange(practice.ContentBlocks);
-        UpsertBlocks(practice, request.ContentBlocks);
+        UpsertBlocks(practice, request.ContentBlocks ?? []);
 
         await dbContext.SaveChangesAsync(ct);
+        await dbContext.Entry(practice).Reference(x => x.Topic).LoadAsync(ct);
         return Map(practice);
     }
 
@@ -112,7 +103,7 @@ public sealed class InterviewPracticeService(AppDbContext dbContext) : IIntervie
         await dbContext.SaveChangesAsync(ct);
     }
 
-    private async Task EnsureProAccessAsync(Guid userId, CancellationToken ct)
+    internal static async Task EnsureProAccessAsync(Guid userId, AppDbContext dbContext, CancellationToken ct)
     {
         var user = await dbContext.Users
             .Where(x => x.Id == userId)
@@ -124,7 +115,10 @@ public sealed class InterviewPracticeService(AppDbContext dbContext) : IIntervie
             throw new AppException("Interview Practice is available for Pro members only.", HttpStatusCode.Forbidden);
     }
 
-    private void UpsertBlocks(InterviewPracticeEntity practice, IReadOnlyList<InterviewPracticeContentBlockRequest> blocks)
+    private async Task EnsureProAccessAsync(Guid userId, CancellationToken ct)
+        => await EnsureProAccessAsync(userId, dbContext, ct);
+
+    internal static void UpsertBlocks(InterviewPracticeEntity practice, IReadOnlyList<InterviewPracticeContentBlockRequest> blocks)
     {
         var entities = blocks.Select(b => new InterviewPracticeContentBlock
         {
@@ -142,11 +136,10 @@ public sealed class InterviewPracticeService(AppDbContext dbContext) : IIntervie
             ImageWidth = b.ImageWidth,
         }).ToList();
 
-        dbContext.InterviewPracticeContentBlocks.AddRange(entities);
         practice.ContentBlocks = entities;
     }
 
-    private async Task<string> EnsureUniqueSlugAsync(string? requested, string title, Guid? currentId, CancellationToken ct)
+    internal static async Task<string> EnsureUniqueSlugAsync(string? requested, string title, Guid? currentId, AppDbContext dbContext, CancellationToken ct)
     {
         var baseSlug = Slugify(string.IsNullOrWhiteSpace(requested) ? title : requested);
         if (string.IsNullOrWhiteSpace(baseSlug))
@@ -160,7 +153,10 @@ public sealed class InterviewPracticeService(AppDbContext dbContext) : IIntervie
         return slug;
     }
 
-    private static string Slugify(string value)
+    private async Task<string> EnsureUniqueSlugAsync(string? requested, string title, Guid? currentId, CancellationToken ct)
+        => await EnsureUniqueSlugAsync(requested, title, currentId, dbContext, ct);
+
+    internal static string Slugify(string value)
     {
         var chars = value.Trim().ToLowerInvariant().Select(c => char.IsLetterOrDigit(c) ? c : '-').ToArray();
         var slug = new string(chars);
@@ -177,21 +173,11 @@ public sealed class InterviewPracticeService(AppDbContext dbContext) : IIntervie
             throw new AppException("Question is required.");
     }
 
-    private static string? Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-
-    private static string[] NormalizeCategories(IReadOnlyCollection<CourseCategory>? categories)
-    {
-        if (categories is null || categories.Count == 0)
-            return [nameof(CourseCategory.Fundamentals)];
-
-        var normalized = categories.Distinct().Select(c => c.ToString()).ToArray();
-        return normalized.Length == 0 ? [nameof(CourseCategory.Fundamentals)] : normalized;
-    }
-
-    private static InterviewPracticeDetailDto Map(InterviewPracticeEntity p) => new(
-        p.Id, p.Title, p.Slug, p.Question, p.Description,
-        p.Level.ToString(), p.Categories, p.ThumbnailUrl,
-        p.IsPublished, p.CreatedAtUtc, p.UpdatedAtUtc,
+    internal static InterviewPracticeDetailDto Map(InterviewPracticeEntity p) => new(
+        p.Id, p.TopicId, p.Topic?.Slug ?? string.Empty,
+        p.Title, p.Slug, p.Question,
+        p.Level.ToString(), p.IsPublished, p.OrderIndex,
+        p.CreatedAtUtc, p.UpdatedAtUtc,
         p.ContentBlocks
             .OrderBy(b => b.OrderIndex)
             .Select(b => new InterviewPracticeContentBlockDto(
