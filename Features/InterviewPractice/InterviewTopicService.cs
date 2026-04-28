@@ -5,6 +5,7 @@ using skillexa_backend.Domain.Enums;
 using skillexa_backend.Infrastructure.Data;
 using InterviewTopicEntity = skillexa_backend.Domain.Entities.InterviewTopic;
 using InterviewPracticeEntity = skillexa_backend.Domain.Entities.InterviewPractice;
+using InterviewPracticeContentBlock = skillexa_backend.Domain.Entities.InterviewPracticeContentBlock;
 
 namespace skillexa_backend.Features.InterviewPractice;
 
@@ -137,16 +138,24 @@ public sealed class InterviewTopicService(AppDbContext dbContext) : IInterviewTo
                     Level = item.Level,
                     IsPublished = item.IsPublished,
                     OrderIndex = item.OrderIndex,
+                    ContentBlocks = item.ContentBlocks?.Select(b => new InterviewPracticeContentBlock
+                    {
+                        OrderIndex = b.OrderIndex,
+                        Type = b.Type,
+                        Content = b.Content,
+                        CodeContent = b.CodeContent,
+                        Language = b.Language,
+                        FileName = b.FileName,
+                        CalloutVariant = b.CalloutVariant,
+                        ImageUrl = b.ImageUrl,
+                        ImageAlt = b.ImageAlt,
+                        ImageCaption = b.ImageCaption,
+                        ImageWidth = b.ImageWidth,
+                    }).ToList() ?? [],
                 };
 
                 dbContext.InterviewPractices.Add(practice);
                 await dbContext.SaveChangesAsync(ct);
-
-                if (item.ContentBlocks is { Count: > 0 })
-                {
-                    InterviewPracticeService.UpsertBlocks(practice, item.ContentBlocks);
-                    await dbContext.SaveChangesAsync(ct);
-                }
 
                 created++;
             }
